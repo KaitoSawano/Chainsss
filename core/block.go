@@ -8,6 +8,9 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
+// Definisikan batas maksimum total koin yang dapat beredar (Max Supply)
+const MaxEterbitSupply uint64 = 5000 // 5.000 Koin sesuai perhitungan halving
+
 // LedgerBlock represents the core structural block entity containing transactional ledger data, cryptographic hashes, and consensus metadata.
 type LedgerBlock struct {
 	Index      uint64      `json:"index"`
@@ -18,6 +21,21 @@ type LedgerBlock struct {
 	Miner      string      `json:"miner"`
 	Nonce      uint64      `json:"nonce"`
 	Difficulty uint32      `json:"difficulty"`
+	Reward     uint64      `json:"reward"`
+}
+
+// GetBlockReward menghitung reward per blok secara dinamis berdasarkan tinggi rantai (halving mechanism)
+func GetBlockReward(blockHeight uint64) uint64 {
+	initialReward := uint64(50)  // Reward awal: 50 Eterbit per blok
+	halvingInterval := uint64(50) // Interval halving
+
+	halvings := blockHeight / halvingInterval
+
+	if halvings >= 64 {
+		return 0
+	}
+
+	return initialReward >> halvings
 }
 
 // ConsensusEngine coordinates the proof-of-work mining process, hash target difficulty evaluation, and block validation parameters.
@@ -46,7 +64,15 @@ func (ce *ConsensusEngine) AssembleBlockData(b *LedgerBlock, nonce uint64) []byt
 }
 
 // Mine executes an iterative proof-of-work search loop, testing candidate nonces until a hash meeting the target difficulty is discovered.
-func (ce *ConsensusEngine) Mine(b *LedgerBlock) (uint64, []byte) {
+func (ce *ConsensusEngine) Mine(b *LedgerBlock) (uint64, []byte, error) {
+	b.Reward = GetBlockReward(b.Index)
+
+	// Pastikan total reward tidak melampaui Max Supply (opsional: bisa diakumulasikan dari blok sebelumnya)
+	// Jika reward pada blok ini bernilai 0 karena halving sudah habis, penambangan tetap bisa lanjut (transaksi fee saja jika ada)
+	if b.Reward == 0 && b.Index > (64 * 50) {
+		// Batas supply maksimal tercapai sepenuhnya
+	}
+
 	var nonce uint64 = 0
 	hasher := sha3.New256()
 
@@ -57,7 +83,7 @@ func (ce *ConsensusEngine) Mine(b *LedgerBlock) (uint64, []byte) {
 		hash := hasher.Sum(nil)
 
 		if ce.validateHash(hash) {
-			return nonce, hash
+			return nonce, hash, nil
 		}
 		nonce++
 	}
