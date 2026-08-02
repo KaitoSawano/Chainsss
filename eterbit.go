@@ -72,7 +72,7 @@ func printUsage() {
 	fmt.Println("Available commands:")
 	fmt.Println("  go run eterbit.go create -name <file.json>   - Generate a new custom wallet file")
 	fmt.Println("  go run eterbit.go balance                    - Inspect account states and balances in LevelDB")
-	fmt.Println("  go run eterbit.go send -to <addr> -amount <val> -wallet <file> - Broadcast transfer tx")
+	fmt.Println("  go run eterbit.go send -to <addr> -amount <val> [-wallet <file>] - Broadcast transfer tx")
 	fmt.Println("  go run eterbit.go node                       - Initialize validator miner and live mempool daemon")
 	fmt.Println("  go run eterbit.go explorer                   - Inspect blockchain blocks and transaction ledger")
 	fmt.Println("================================================================================")
@@ -140,12 +140,16 @@ func handleCheckBalance() {
 func handleSendTx(recipient string, amount uint64, fee uint64, walletFile string) {
 	if recipient == "" || amount == 0 {
 		fmt.Println("[CLI] Incomplete arguments! Please utilize the -to and -amount flags.")
-		fmt.Println("Example: go run eterbit.go send -to <address> -amount 100 -wallet wallet2.json")
+		fmt.Println("Example: go run eterbit.go send -to <address> -amount 100")
 		return
 	}
 
 	ledger := node.InitializeLedger("eterbit_data", 3, "SYSTEM_SENDER")
 	
+	if walletFile == "" {
+		walletFile = "keystore.json"
+	}
+
 	filePath := filepath.Join("eterbit_data", walletFile)
 	addrA, privKeyA, pubBytesA, err := wallet.LoadWalletCustom(filePath)
 	if err != nil {
@@ -153,11 +157,20 @@ func handleSendTx(recipient string, amount uint64, fee uint64, walletFile string
 		return
 	}
 
-	if _, exists := ledger.State[addrA]; !exists {
-		ledger.State[addrA] = &node.AccountState{Balance: 1000, Nonce: 0}
+	var matchedKey string
+	for k := range ledger.State {
+		if k == addrA || (len(addrA) >= 16 && len(k) >= 16 && k[:16] == addrA[:16]) {
+			matchedKey = k
+			break
+		}
 	}
 
-	currentNonce := ledger.State[addrA].Nonce
+	if matchedKey == "" {
+		fmt.Printf("[CLI] Error: Address %s not found in LevelDB state ledger!\n", addrA[:16])
+		return
+	}
+
+	currentNonce := ledger.State[matchedKey].Nonce
 	fmt.Printf("[CLI] Constructing transaction from %s (via %s) to %s...\n", addrA[:16], walletFile, recipient)
 
 	tx := core.NewTransfer(privKeyA, pubBytesA, recipient, amount, fee, currentNonce)
