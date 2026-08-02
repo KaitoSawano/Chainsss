@@ -1,0 +1,50 @@
+package storage
+
+import (
+	"encoding/json"
+	"strconv"
+
+	"github.com/syndtr/goleveldb/leveldb"
+)
+
+type Database struct {
+	DB *leveldb.DB
+}
+
+func NewDatabase(dbPath string) (*Database, error) {
+	db, err := leveldb.OpenFile(dbPath, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &Database{DB: db}, nil
+}
+
+func (d *Database) SaveBlock(index uint64, blockData interface{}) error {
+	data, err := json.Marshal(blockData)
+	if err != nil {
+		return err
+	}
+	key := "block_" + strconv.FormatUint(index, 10)
+	err = d.DB.Put([]byte(key), data, nil)
+	if err != nil {
+		return err
+	}
+	return d.DB.Put([]byte("last_index"), []byte(strconv.FormatUint(index, 10)), nil)
+}
+
+func (d *Database) GetLastIndex() (uint64, bool) {
+	data, err := d.DB.Get([]byte("last_index"), nil)
+	if err != nil {
+		return 0, false
+	}
+	idx, err := strconv.ParseUint(string(data), 10, 64)
+	if err != nil {
+		return 0, false
+	}
+	return idx, true
+}
+
+func (d *Database) GetBlock(index uint64) ([]byte, error) {
+	key := "block_" + strconv.FormatUint(index, 10)
+	return d.DB.Get([]byte(key), nil)
+}
