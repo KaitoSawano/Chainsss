@@ -157,7 +157,7 @@ func handleSendTx(recipient string, amount uint64, fee uint64) {
 		return
 	}
 
-	// Provision default genesis-like bootstrapping balance if sender state is uninitialized
+	// Provision default bootstrapping balance if sender state is uninitialized
 	if _, exists := ledger.State[addrA]; !exists {
 		ledger.State[addrA] = &node.AccountState{Balance: 1000, Nonce: 0}
 	}
