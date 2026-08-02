@@ -61,10 +61,10 @@ func printUsage() {
 	fmt.Println(" ETERBIT BLOCKCHAIN CLI MANAGER")
 	fmt.Println("================================================================================")
 	fmt.Println("Available commands:")
-	fmt.Println("  go run eterbit.go create            - Generate or load local cryptographic wallet")
-	fmt.Println("  go run eterbit.go balance           - Inspect account states and balances in LevelDB")
+	fmt.Println("  go run eterbit.go create             - Generate or load local cryptographic wallet")
+	fmt.Println("  go run eterbit.go balance            - Inspect account states and balances in LevelDB")
 	fmt.Println("  go run eterbit.go send -to <addr> -amount <val> -fee <val> - Broadcast transfer tx")
-	fmt.Println("  go run eterbit.go node              - Initialize validator miner and live mempool daemon")
+	fmt.Println("  go run eterbit.go node               - Initialize validator miner and live mempool daemon")
 	fmt.Println("================================================================================")
 }
 
@@ -77,26 +77,29 @@ func handleCreateWallet() {
 		fmt.Println("================================================================================")
 		fmt.Println(" LOCAL WALLET ALREADY EXISTS (KEYSTORE)")
 		fmt.Println("================================================================================")
-		fmt.Printf(" Address          : %s\n", existing.Address)
+		fmt.Printf(" Address         : %s\n", existing.Address)
 		fmt.Println("--------------------------------------------------------------------------------")
 		fmt.Println(" Wallet securely loaded from eterbit_data/keystore.json")
 		return
 	}
 
 	// Trigger generation of new asymmetric PQC parameters
-	addr, pubKey, privKey, err := wallet.CreateOrLoadWallet()
+	addr, privKey, pubBytes, err := wallet.CreateOrLoadWallet()
 	if err != nil {
 		fmt.Printf("[WALLET] Failed to generate cryptographic keys: %v\n", err)
 		return
 	}
 
-	pubBytes := pubKey.Bytes()
-	privBytes, _ := privKey.MarshalBinary()
+	privBytes, err := privKey.MarshalBinary()
+	if err != nil {
+		fmt.Printf("[WALLET] Failed to marshal private key: %v\n", err)
+		return
+	}
 
 	fmt.Println("================================================================================")
 	fmt.Println(" ETERBIT CUSTOM WALLET GENERATED & PERSISTED SUCCESSFULLY")
 	fmt.Println("================================================================================")
-	fmt.Printf(" Address          : %s\n", addr)
+	fmt.Printf(" Address         : %s\n", addr)
 	fmt.Printf(" Public Key (Hex) : %s\n", hex.EncodeToString(pubBytes))
 	fmt.Printf(" Private Key (Hex): %s\n", hex.EncodeToString(privBytes))
 	fmt.Println("--------------------------------------------------------------------------------")
@@ -143,13 +146,11 @@ func handleSendTx(recipient string, amount uint64, fee uint64) {
 	ledger := node.InitializeLedger("eterbit_data", 3, "SYSTEM_SENDER")
 	
 	// Load localized sender wallet credentials from disk storage
-	addrA, pubKeyA, privKeyA, err := wallet.CreateOrLoadWallet()
+	addrA, privKeyA, pubBytesA, err := wallet.CreateOrLoadWallet()
 	if err != nil {
 		fmt.Printf("[CLI] Failed to load local wallet: %v\n", err)
 		return
 	}
-
-	pubBytesA := pubKeyA.Bytes()
 
 	// Provision default genesis-like bootstrapping balance if sender state is uninitialized
 	if _, exists := ledger.State[addrA]; !exists {
@@ -161,7 +162,7 @@ func handleSendTx(recipient string, amount uint64, fee uint64) {
 	fmt.Printf("[CLI] Constructing transaction from %s to %s...\n", addrA[:16], recipient)
 
 	// Execute cryptographic signing mechanism and formulate transfer payload object
-	tx := core.NewTransfer(&privKeyA, pubBytesA, recipient, amount, fee, currentNonce)
+	tx := core.NewTransfer(privKeyA, pubBytesA, recipient, amount, fee, currentNonce)
 	
 	// Commit signed transaction instance into the volatile mempool structure
 	if ledger.AddToMempool(tx) {
@@ -176,7 +177,7 @@ func handleRunNode() {
 	fmt.Println("--------------------------------------------------------------------------------")
 
 	// Resolve local miner node operator identity credentials
-	addrMiner, pubKeyMiner, _, err := wallet.CreateOrLoadWallet()
+	addrMiner, _, pubBytesMiner, err := wallet.CreateOrLoadWallet()
 	if err != nil {
 		fmt.Printf("[NODE] Failed to load miner wallet: %v\n", err)
 		return
@@ -188,7 +189,7 @@ func handleRunNode() {
 	// Launch background block production worker routines with periodic intervals
 	ledger.StartLiveWorker(4 * time.Second)
 
-	fmt.Printf("[NODE] Active validator miner address: %s (Pub: %s...)\n", addrMiner[:16], hex.EncodeToString(pubKeyMiner.Bytes()[:8]))
+	fmt.Printf("[NODE] Active validator miner address: %s (Pub: %s...)\n", addrMiner[:16], hex.EncodeToString(pubBytesMiner[:8]))
 	fmt.Println("[NODE] Node operational daemon running. Press Ctrl+C to terminate process.")
 	fmt.Println("--------------------------------------------------------------------------------")
 
