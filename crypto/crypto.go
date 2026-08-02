@@ -1,56 +1,35 @@
 package crypto
 
 import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
 	"encoding/hex"
-	"errors"
-	"math/big"
 
-	"golang.org/x/crypto/sha3"
+	"eterbit/crypto/dilithium3"
+	"eterbit/crypto/sha3"
+	"github.com/cloudflare/circl/sign/dilithium/mode3"
 )
 
-// GenerateKey generates a new ECDSA private key utilizing the secp256k1 equivalent elliptic curve standard.
-func GenerateKey() (*ecdsa.PrivateKey, error) {
-	return ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+// GenerateKey delegates post-quantum keypair creation to the dilithium3 module.
+func GenerateKey() (*mode3.PublicKey, *mode3.PrivateKey, error) {
+	return dilithium3.GenerateKey()
 }
 
-// Keccak256 computes the 256-bit Keccak hash of the provided byte slice data payload.
-func Keccak256(data []byte) []byte {
-	hasher := sha3.NewLegacyKeccak256()
-	hasher.Write(data)
-	return hasher.Sum(nil)
+// Hash256 delegates hashing operations to the sha3 module.
+func Hash256(data []byte) []byte {
+	return sha3.Hash256(data)
 }
 
-// PubkeyToAddress derives a standard hex-encoded account address string from an ECDSA public key.
-func PubkeyToAddress(p *ecdsa.PublicKey) string {
-	pubBytes := elliptic.Marshal(p.Curve, p.X, p.Y)
-	hash := Keccak256(pubBytes[1:])
-	return "etrb" + hex.EncodeToString(hash[12:])
+// PubkeyToAddress derives a custom post-quantum network address string from a Dilithium public key bytes slice.
+func PubkeyToAddress(pubBytes []byte) string {
+	rawHex := hex.EncodeToString(pubBytes[:14])
+	return "etrb" + rawHex
 }
 
-// Sign creates an ECDSA digital signature over the provided 32-byte message hash payload.
-func Sign(hash []byte, priv *ecdsa.PrivateKey) ([]byte, error) {
-	if len(hash) != 32 {
-		return nil, errors.New("invalid hash length, must be exactly 32 bytes")
-	}
-	r, s, err := ecdsa.Sign(rand.Reader, priv, hash)
-	if err != nil {
-		return nil, err
-	}
-	sig := make([]byte, 64)
-	copy(sig[32-len(r.Bytes()):32], r.Bytes())
-	copy(sig[64-len(s.Bytes()):64], s.Bytes())
-	return sig, nil
+// Sign delegates signature generation to the dilithium3 module.
+func Sign(priv *mode3.PrivateKey, message []byte) ([]byte, error) {
+	return dilithium3.Sign(priv, message)
 }
 
-// Verify checks the validity of an ECDSA signature against a public key and message hash.
-func Verify(pubKey *ecdsa.PublicKey, hash, sig []byte) bool {
-	if len(sig) != 64 || len(hash) != 32 {
-		return false
-	}
-	r := new(big.Int).SetBytes(sig[:32])
-	s := new(big.Int).SetBytes(sig[32:])
-	return ecdsa.Verify(pubKey, hash, r, s)
+// Verify delegates signature verification to the dilithium3 module.
+func Verify(pub *mode3.PublicKey, message, sig []byte) bool {
+	return dilithium3.Verify(pub, message, sig)
 }
