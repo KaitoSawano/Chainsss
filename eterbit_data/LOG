@@ -1,0 +1,45 @@
+=============== Aug 2, 2026 (UTC) ===============
+22:09:28.938100 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+22:09:28.955913 db@open opening
+22:09:28.961491 version@stat F·[] S·0B[] Sc·[]
+22:09:28.967689 db@janitor F·2 G·0
+22:09:28.967884 db@open done T·11.90123ms
+=============== Aug 2, 2026 (UTC) ===============
+22:10:00.467572 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+22:10:00.471341 version@stat F·[] S·0B[] Sc·[]
+22:10:00.471473 db@open opening
+22:10:00.472704 journal@recovery F·1
+22:10:00.476275 journal@recovery recovering @1
+22:10:00.490944 memdb@flush created L0@2 N·2 S·324B "block_0,v1":"las..dex,v2"
+22:10:00.493368 version@stat F·[1] S·324B[324B] Sc·[0.25]
+22:10:00.504375 db@janitor F·3 G·0
+22:10:00.504548 db@open done T·33.026538ms
+=============== Aug 2, 2026 (UTC) ===============
+22:10:13.693000 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+22:10:13.696509 version@stat F·[1] S·324B[324B] Sc·[0.25]
+22:10:13.696678 db@open opening
+22:10:13.697872 journal@recovery F·1
+22:10:13.699051 journal@recovery recovering @3
+22:10:13.706317 memdb@flush created L0@5 N·4 S·482B "block_1,v4":"las..dex,v5"
+22:10:13.708233 version@stat F·[2] S·806B[806B] Sc·[0.50]
+22:10:13.735279 db@janitor F·4 G·0
+22:10:13.735598 db@open done T·38.857923ms
+=============== Aug 2, 2026 (UTC) ===============
+22:10:30.950165 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+22:10:30.953937 version@stat F·[2] S·806B[806B] Sc·[0.50]
+22:10:30.954074 db@open opening
+22:10:30.954740 journal@recovery F·1
+22:10:30.961058 journal@recovery recovering @6
+22:10:30.966318 version@stat F·[2] S·806B[806B] Sc·[0.50]
+22:10:30.995957 db@janitor F·4 G·0
+22:10:30.996230 db@open done T·42.098692ms
+=============== Aug 2, 2026 (UTC) ===============
+22:10:44.560093 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+22:10:44.566302 version@stat F·[2] S·806B[806B] Sc·[0.50]
+22:10:44.566474 db@open opening
+22:10:44.567800 journal@recovery F·1
+22:10:44.569304 journal@recovery recovering @8
+22:10:44.576203 memdb@flush created L0@10 N·4 S·480B "block_3,v9":"las..dex,v10"
+22:10:44.577843 version@stat F·[3] S·1KiB[1KiB] Sc·[0.75]
+22:10:44.600070 db@janitor F·5 G·0
+22:10:44.600284 db@open done T·33.761846ms
