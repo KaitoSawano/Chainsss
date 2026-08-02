@@ -11,7 +11,7 @@ import (
 	"eterbit/node"
 	"eterbit/storage/wallet"
 
-	"github.com/cloudflare/circl/sign/dilithium/mode3"
+	_ "github.com/cloudflare/circl/sign/dilithium/mode3"
 )
 
 func main() {
@@ -137,7 +137,8 @@ func handleSendTx(recipient string, amount uint64, fee uint64) {
 	currentNonce := ledger.State[addrA].Nonce
 	fmt.Printf("[CLI] Membuat transaksi dari %s ke %s...\n", addrA[:16], recipient)
 
-	tx := core.NewTransfer(privKeyA, pubBytesA, recipient, amount, fee, currentNonce)
+	// Perbaikan di sini: menambahkan & sebelum privKeyA agar sesuai tipe pointer
+	tx := core.NewTransfer(&privKeyA, pubBytesA, recipient, amount, fee, currentNonce)
 	
 	if ledger.AddToMempool(tx) {
 		fmt.Printf("[CLI] ✅ Transaksi berhasil dimasukkan ke mempool! ID: %s\n", tx.ComputeID()[:16])
