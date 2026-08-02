@@ -46,3 +46,51 @@
 21:35:36.112734 db@open done T·40.805846ms
 21:35:36.118021 db@close closing
 21:35:36.119971 db@close done T·1.932ms
+=============== Aug 2, 2026 (UTC) ===============
+21:45:07.496478 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+21:45:07.504086 version@stat F·[2] S·14KiB[14KiB] Sc·[0.50]
+21:45:07.504329 db@open opening
+21:45:07.507979 journal@recovery F·1
+21:45:07.513566 journal@recovery recovering @10
+21:45:07.518661 version@stat F·[2] S·14KiB[14KiB] Sc·[0.50]
+21:45:07.551775 db@janitor F·4 G·0
+21:45:07.552117 db@open done T·47.715693ms
+=============== Aug 2, 2026 (UTC) ===============
+21:46:17.817812 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+21:46:17.822445 version@stat F·[2] S·14KiB[14KiB] Sc·[0.50]
+21:46:17.822629 db@open opening
+21:46:17.823772 journal@recovery F·1
+21:46:17.828687 journal@recovery recovering @12
+21:46:17.833769 version@stat F·[2] S·14KiB[14KiB] Sc·[0.50]
+21:46:17.864556 db@janitor F·4 G·0
+21:46:17.866360 db@open done T·43.686461ms
+21:46:17.869657 db@close closing
+21:46:17.870745 db@close done T·1.067385ms
+=============== Aug 2, 2026 (UTC) ===============
+21:46:50.990896 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+21:46:50.997978 version@stat F·[2] S·14KiB[14KiB] Sc·[0.50]
+21:46:50.998205 db@open opening
+21:46:51.000209 journal@recovery F·1
+21:46:51.003359 journal@recovery recovering @14
+21:46:51.007668 version@stat F·[2] S·14KiB[14KiB] Sc·[0.50]
+21:46:51.042771 db@janitor F·4 G·0
+21:46:51.043097 db@open done T·44.793ms
+=============== Aug 2, 2026 (UTC) ===============
+21:51:16.953057 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+21:51:16.960185 version@stat F·[2] S·14KiB[14KiB] Sc·[0.50]
+21:51:16.960414 db@open opening
+21:51:16.962894 journal@recovery F·1
+21:51:16.970698 journal@recovery recovering @16
+21:51:16.978759 version@stat F·[2] S·14KiB[14KiB] Sc·[0.50]
+21:51:17.011363 db@janitor F·4 G·0
+21:51:17.011598 db@open done T·51.129231ms
+=============== Aug 2, 2026 (UTC) ===============
+21:52:43.773718 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+21:52:43.779703 version@stat F·[2] S·14KiB[14KiB] Sc·[0.50]
+21:52:43.779960 db@open opening
+21:52:43.781565 journal@recovery F·1
+21:52:43.784297 journal@recovery recovering @18
+21:52:43.793040 memdb@flush created L0@20 N·16 S·1005B "block_10,v23":"las..dex,v10"
+21:52:43.795606 version@stat F·[3] S·15KiB[15KiB] Sc·[0.75]
+21:52:43.816868 db@janitor F·5 G·0
+21:52:43.817085 db@open done T·37.048231ms

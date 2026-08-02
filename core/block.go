@@ -64,14 +64,8 @@ func (ce *ConsensusEngine) AssembleBlockData(b *LedgerBlock, nonce uint64) []byt
 }
 
 // Mine executes an iterative proof-of-work search loop, testing candidate nonces until a hash meeting the target difficulty is discovered.
-func (ce *ConsensusEngine) Mine(b *LedgerBlock) (uint64, []byte, error) {
+func (ce *ConsensusEngine) Mine(b *LedgerBlock) (uint64, []byte) {
 	b.Reward = GetBlockReward(b.Index)
-
-	// Pastikan total reward tidak melampaui Max Supply (opsional: bisa diakumulasikan dari blok sebelumnya)
-	// Jika reward pada blok ini bernilai 0 karena halving sudah habis, penambangan tetap bisa lanjut (transaksi fee saja jika ada)
-	if b.Reward == 0 && b.Index > (64 * 50) {
-		// Batas supply maksimal tercapai sepenuhnya
-	}
 
 	var nonce uint64 = 0
 	hasher := sha3.New256()
@@ -83,7 +77,7 @@ func (ce *ConsensusEngine) Mine(b *LedgerBlock) (uint64, []byte, error) {
 		hash := hasher.Sum(nil)
 
 		if ce.validateHash(hash) {
-			return nonce, hash, nil
+			return nonce, hash
 		}
 		nonce++
 	}

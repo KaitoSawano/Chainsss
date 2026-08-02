@@ -98,11 +98,13 @@ func (lc *LedgerCore) RebuildState(block *core.LedgerBlock) {
 		for _, tx := range block.Transfers {
 			feeTotal += tx.Fee
 		}
-		if feeTotal > 0 {
+		
+		totalRewardAdded := block.Reward + feeTotal
+		if totalRewardAdded > 0 {
 			if _, ok := lc.State[block.Miner]; !ok {
 				lc.State[block.Miner] = &AccountState{Balance: 0, Nonce: 0}
 			}
-			lc.State[block.Miner].Balance += feeTotal
+			lc.State[block.Miner].Balance += totalRewardAdded
 		}
 	}
 }
@@ -149,21 +151,14 @@ func (lc *LedgerCore) AddToMempool(tx *core.Transfer) bool {
 	return true
 }
 
-// StartLiveWorker starts the background worker daemon to periodically mine blocks from pending mempool transactions.
+// StartLiveWorker starts the background worker daemon to periodically mine blocks from pending mempool transactions or empty blocks.
 func (lc *LedgerCore) StartLiveWorker(interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	go func() {
 		for {
 			select {
 			case <-ticker.C:
-				lc.Mu.Lock()
-				count := len(lc.Mempool)
-				lc.Mu.Unlock()
-
-				if count > 0 {
-					fmt.Printf("\n[NODE] Processing mempool: Packing %d pending transactions...\n", count)
-					lc.MineBlock()
-				}
+				lc.MineBlock()
 			case <-lc.StopSignal:
 				ticker.Stop()
 				return
@@ -175,41 +170,30 @@ func (lc *LedgerCore) StartLiveWorker(interval time.Duration) {
 // MineBlock packages mempool transactions, executes proof-of-work mining, and appends the new block to the ledger.
 func (lc *LedgerCore) MineBlock() {
 	lc.Mu.Lock()
-	if len(lc.Mempool) == 0 {
-		lc.Mu.Unlock()
-		return
-	}
-
 	parent := lc.Chain[len(lc.Chain)-1]
 	validTx := make([]*core.Transfer, 0)
-	var reward uint64 = 0
+	var feeTotal uint64 = 0
 
-	for _, tx := range lc.Mempool {
-		sender := hex.EncodeToString(tx.SenderPubKey[:16])
-		acc := lc.State[sender]
+	// Ambil semua transaksi dari mempool jika ada
+	if len(lc.Mempool) > 0 {
+		for _, tx := range lc.Mempool {
+			sender := hex.EncodeToString(tx.SenderPubKey[:16])
+			acc := lc.State[sender]
 
-		acc.Balance -= (tx.Value + tx.Fee)
-		acc.Nonce++
+			acc.Balance -= (tx.Value + tx.Fee)
+			acc.Nonce++
 
-		if _, ok := lc.State[tx.Recipient]; !ok {
-			lc.State[tx.Recipient] = &AccountState{Balance: tx.Value, Nonce: 0}
-		} else {
-			lc.State[tx.Recipient].Balance += tx.Value
+			if _, ok := lc.State[tx.Recipient]; !ok {
+				lc.State[tx.Recipient] = &AccountState{Balance: tx.Value, Nonce: 0}
+			} else {
+				lc.State[tx.Recipient].Balance += tx.Value
+			}
+
+			feeTotal += tx.Fee
+			validTx = append(validTx, tx)
 		}
-
-		reward += tx.Fee
-		validTx = append(validTx, tx)
+		lc.Mempool = make([]*core.Transfer, 0)
 	}
-
-	if reward > 0 {
-		if _, ok := lc.State[lc.MinerAddress]; !ok {
-			lc.State[lc.MinerAddress] = &AccountState{Balance: reward, Nonce: 0}
-		} else {
-			lc.State[lc.MinerAddress].Balance += reward
-		}
-	}
-
-	lc.Mempool = make([]*core.Transfer, 0)
 	lc.Mu.Unlock()
 
 	newBlock := &core.LedgerBlock{
@@ -221,17 +205,32 @@ func (lc *LedgerCore) MineBlock() {
 		Difficulty: lc.Engine.TargetDifficulty,
 	}
 
-	fmt.Printf("[MINER] Mining Block #%d...\n", newBlock.Index)
+	fmt.Printf("[MINER] Mining Block #%d (Target Difficulty: %d)...\n", newBlock.Index, newBlock.Difficulty)
+	
+	startTime := time.Now()
 	nonce, hash := lc.Engine.Mine(newBlock)
+	duration := time.Since(startTime)
+
 	newBlock.Nonce = nonce
 	newBlock.Hash = hash
 
+	// Alokasikan reward dan fee penambang ke State akun miner
 	lc.Mu.Lock()
 	lc.Chain = append(lc.Chain, newBlock)
 	lc.Storage.SaveBlock(newBlock.Index, newBlock)
+
+	totalMinerReward := newBlock.Reward + feeTotal
+	if totalMinerReward > 0 {
+		if _, ok := lc.State[lc.MinerAddress]; !ok {
+			lc.State[lc.MinerAddress] = &AccountState{Balance: totalMinerReward, Nonce: 0}
+		} else {
+			lc.State[lc.MinerAddress].Balance += totalMinerReward
+		}
+	}
 	lc.Mu.Unlock()
 
 	fmt.Println("--------------------------------------------------------------------------------")
-	fmt.Printf("[SUCCESS] Block #%d successfully persisted to LevelDB! (Nonce: %d, Tx: %d)\n", newBlock.Index, newBlock.Nonce, len(newBlock.Transfers))
+	fmt.Printf("[SUCCESS] Block #%d Mined & Saved! (Reward: %d, Fee: %d, Nonce: %d, Time: %v)\n", newBlock.Index, newBlock.Reward, feeTotal, newBlock.Nonce, duration)
+	fmt.Printf("[CHAIN] Total Blocks: %d | Miner Balance Updated\n", len(lc.Chain))
 	fmt.Println("--------------------------------------------------------------------------------")
 }
