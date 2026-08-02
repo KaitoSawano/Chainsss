@@ -16,7 +16,7 @@ type WalletData struct {
 	PrivateKey string `json:"private_key"`
 }
 
-const walletDir = "storage/wallet"
+const walletDir = "eterbit_data"
 const walletFile = "keystore.json"
 
 // SaveWallet menyimpan dompet ke file JSON lokal
