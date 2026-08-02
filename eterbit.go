@@ -22,7 +22,7 @@ func main() {
 	nodeCmd := flag.NewFlagSet("node", flag.ExitOnError)
 
 	// Argumen untuk perintah send
-	sendRecipient := sendCmd.String("to", "", "Alamat penerima (16 karakter hex pertama)")
+	sendRecipient := sendCmd.String("to", "", "Alamat penerima (etrb...)")
 	sendAmount := sendCmd.Uint64("amount", 0, "Jumlah koin yang dikirim")
 	sendFee := sendCmd.Uint64("fee", 5, "Biaya transaksi (fee)")
 
@@ -70,14 +70,15 @@ func handleCreateWallet() {
 	}
 
 	pubBytes := pubKey.Bytes()
-	addr := hex.EncodeToString(pubBytes[:16])
+	rawHex := hex.EncodeToString(pubBytes[:14])
+	addr := "etrb" + rawHex
 	
 	privBytes, _ := privKey.MarshalBinary()
 
 	fmt.Println("================================================================================")
-	fmt.Println(" 🔑 DOMPET BARU BERHASIL DIBUAT")
+	fmt.Println(" 🔑 DOMPET KUSTOM ETERBIT BERHASIL DIBUAT")
 	fmt.Println("================================================================================")
-	fmt.Printf(" Alamat (Address) : 0x%s\n", addr)
+	fmt.Printf(" Alamat (Address) : %s\n", addr)
 	fmt.Printf(" Public Key (Hex) : %s\n", hex.EncodeToString(pubBytes))
 	fmt.Printf(" Private Key (Hex): %s\n", hex.EncodeToString(privBytes))
 	fmt.Println("--------------------------------------------------------------------------------")
@@ -94,7 +95,11 @@ func handleCheckBalance() {
 		return
 	}
 	for addr, acc := range ledger.State {
-		fmt.Printf(" Alamat: 0x%s... | Saldo: %d Koin | Nonce: %d\n", addr[:12], acc.Balance, acc.Nonce)
+		formattedAddr := addr
+		if len(addr) >= 16 && addr[:4] != "etrb" {
+			formattedAddr = "etrb" + addr
+		}
+		fmt.Printf(" Alamat: %s... | Saldo: %d Koin | Nonce: %d\n", formattedAddr[:16], acc.Balance, acc.Nonce)
 	}
 	fmt.Println("================================================================================")
 }
@@ -108,22 +113,20 @@ func handleSendTx(recipient string, amount uint64, fee uint64) {
 
 	ledger := node.InitializeLedger("eterbit_data", 3, "SYSTEM_SENDER")
 	
-	// Untuk demo CLI, kita buat dompet pengirim sementara yang otomatis diberi saldo
 	pubKeyA, privKeyA, _ := mode3.GenerateKey(rand.Reader)
 	pubBytesA := pubKeyA.Bytes()
-	addrA := hex.EncodeToString(pubBytesA[:16])
+	rawHexA := hex.EncodeToString(pubBytesA[:14])
+	addrA := "etrb" + rawHexA
 
-	// Beri saldo awal ke dompet demo ini jika belum ada
 	if _, exists := ledger.State[addrA]; !exists {
 		ledger.State[addrA] = &node.AccountState{Balance: 1000, Nonce: 0}
 	}
 
 	currentNonce := ledger.State[addrA].Nonce
-	fmt.Printf("[CLI] Membuat transaksi dari 0x%s ke 0x%s...\n", addrA[:12], recipient)
+	fmt.Printf("[CLI] Membuat transaksi dari %s ke %s...\n", addrA[:16], recipient)
 
 	tx := core.NewTransfer(privKeyA, pubBytesA, recipient, amount, fee, currentNonce)
 	
-	// Masukkan ke mempool (bisa diproses node nanti)
 	if ledger.AddToMempool(tx) {
 		fmt.Printf("[CLI] ✅ Transaksi berhasil dimasukkan ke mempool! ID: %s\n", tx.ComputeID()[:16])
 	}
@@ -134,12 +137,13 @@ func handleRunNode() {
 	fmt.Println("--------------------------------------------------------------------------------")
 
 	pubKeyM, _, _ := mode3.GenerateKey(rand.Reader)
-	addrMiner := hex.EncodeToString(pubKeyM.Bytes()[:16])
+	rawHexM := hex.EncodeToString(pubKeyM.Bytes()[:14])
+	addrMiner := "etrb" + rawHexM
 
 	ledger := node.InitializeLedger("eterbit_data", 3, addrMiner)
 	ledger.StartLiveWorker(4 * time.Second)
 
-	fmt.Printf("[NODE] Penambang aktif dengan alamat: 0x%s\n", addrMiner[:12])
+	fmt.Printf("[NODE] Penambang aktif dengan alamat: %s\n", addrMiner[:16])
 	fmt.Println("[NODE] Node berjalan. Tekan Ctrl+C untuk menghentikan.")
 	fmt.Println("--------------------------------------------------------------------------------")
 
