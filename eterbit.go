@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"eterbit/core"
@@ -24,10 +25,14 @@ func main() {
 	nodeCmd := flag.NewFlagSet("node", flag.ExitOnError)
 	explorerCmd := flag.NewFlagSet("explorer", flag.ExitOnError)
 
+	// Bind flags configuration for the wallet creation command
+	walletName := walletCreateCmd.String("name", "keystore.json", "Custom filename for the wallet (e.g., wallet2.json)")
+
 	// Bind flags configuration for the transfer execution command
 	sendRecipient := sendCmd.String("to", "", "Recipient destination address (etrb...)")
 	sendAmount := sendCmd.Uint64("amount", 0, "Transfer value amount denominated in base units")
 	sendFee := sendCmd.Uint64("fee", 5, "Transaction execution gas/network fee allocation")
+	walletSource := sendCmd.String("wallet", "keystore.json", "Wallet filename to use for sending transaction")
 
 	// Validate presence of operational arguments
 	if len(os.Args) < 2 {
@@ -39,13 +44,13 @@ func main() {
 	switch os.Args[1] {
 	case "create":
 		walletCreateCmd.Parse(os.Args[2:])
-		handleCreateWallet()
+		handleCreateWallet(*walletName)
 	case "balance":
 		balanceCmd.Parse(os.Args[2:])
 		handleCheckBalance()
 	case "send":
 		sendCmd.Parse(os.Args[2:])
-		handleSendTx(*sendRecipient, *sendAmount, *sendFee)
+		handleSendTx(*sendRecipient, *sendAmount, *sendFee, *walletSource)
 	case "node":
 		nodeCmd.Parse(os.Args[2:])
 		handleRunNode()
@@ -62,34 +67,30 @@ func main() {
 // to the standard output terminal interface.
 func printUsage() {
 	fmt.Println("================================================================================")
-	fmt.Println(" ETERBIT BLOCKCHAIN CLI MANAGER")
+	fmt.Println(" ETERBIT BLOCKCHAIN CLI MANAGER (MULTI-WALLET)")
 	fmt.Println("================================================================================")
 	fmt.Println("Available commands:")
-	fmt.Println("  go run eterbit.go create             - Generate or load local cryptographic wallet")
-	fmt.Println("  go run eterbit.go balance            - Inspect account states and balances in LevelDB")
-	fmt.Println("  go run eterbit.go send -to <addr> -amount <val> -fee <val> - Broadcast transfer tx")
-	fmt.Println("  go run eterbit.go node               - Initialize validator miner and live mempool daemon")
-	fmt.Println("  go run eterbit.go explorer           - Inspect blockchain blocks and transaction ledger")
+	fmt.Println("  go run eterbit.go create -name <file.json>   - Generate a new custom wallet file")
+	fmt.Println("  go run eterbit.go balance                    - Inspect account states and balances in LevelDB")
+	fmt.Println("  go run eterbit.go send -to <addr> -amount <val> -wallet <file> - Broadcast transfer tx")
+	fmt.Println("  go run eterbit.go node                       - Initialize validator miner and live mempool daemon")
+	fmt.Println("  go run eterbit.go explorer                   - Inspect blockchain blocks and transaction ledger")
 	fmt.Println("================================================================================")
 }
 
-// handleCreateWallet checks for the existence of a persistent keystore context.
-// If absent, it provisions a cryptographically secure post-quantum keypair and serializes it.
-func handleCreateWallet() {
-	// Attempt to resolve pre-existing local keystore mapping
-	existing, err := wallet.LoadWallet()
-	if err == nil {
-		fmt.Println("================================================================================")
-		fmt.Println(" LOCAL WALLET ALREADY EXISTS (KEYSTORE)")
-		fmt.Println("================================================================================")
-		fmt.Printf(" Address         : %s\n", existing.Address)
-		fmt.Println("--------------------------------------------------------------------------------")
-		fmt.Println(" Wallet securely loaded from eterbit_data/keystore.json")
+// handleCreateWallet provisions a new cryptographic keypair and serializes it to a custom filename.
+func handleCreateWallet(filename string) {
+	os.MkdirAll("eterbit_data", 0755)
+	filePath := filepath.Join("eterbit_data", filename)
+
+	// Check if wallet file already exists
+	if _, err := os.Stat(filePath); err == nil {
+		fmt.Printf("[WALLET] Wallet file '%s' already exists in eterbit_data/!\n", filename)
 		return
 	}
 
-	// Trigger generation of new asymmetric PQC parameters
-	addr, privKey, pubBytes, err := wallet.CreateOrLoadWallet()
+	// Trigger generation of new asymmetric PQC parameters using custom path helper
+	addr, privKey, pubBytes, err := wallet.CreateOrLoadWalletCustom(filePath)
 	if err != nil {
 		fmt.Printf("[WALLET] Failed to generate cryptographic keys: %v\n", err)
 		return
@@ -102,31 +103,28 @@ func handleCreateWallet() {
 	}
 
 	fmt.Println("================================================================================")
-	fmt.Println(" ETERBIT CUSTOM WALLET GENERATED & PERSISTED SUCCESSFULLY")
+	fmt.Println(" ETERBIT NEW WALLET GENERATED & PERSISTED SUCCESSFULLY")
 	fmt.Println("================================================================================")
-	fmt.Printf(" Address         : %s\n", addr)
+	fmt.Printf(" Filename         : %s\n", filePath)
+	fmt.Printf(" Address          : %s\n", addr)
 	fmt.Printf(" Public Key (Hex) : %s\n", hex.EncodeToString(pubBytes))
 	fmt.Printf(" Private Key (Hex): %s\n", hex.EncodeToString(privBytes))
 	fmt.Println("--------------------------------------------------------------------------------")
-	fmt.Println(" Automatically persisted to eterbit_data/keystore.json")
 }
 
 // handleCheckBalance initializes the persistence engine state ledger interface
 // and inspects all recorded account states and nonces currently committed.
 func handleCheckBalance() {
-	// Instantiate ledger reference mapped to the designated database storage directory
 	ledger := node.InitializeLedger("eterbit_data", 3, "SYSTEM_VIEWER")
 	fmt.Println("================================================================================")
 	fmt.Println(" REGISTERED ACCOUNT BALANCES IN LEVELDB")
 	fmt.Println("================================================================================")
 	
-	// Evaluate state ledger cardinality
 	if len(ledger.State) == 0 {
 		fmt.Println(" No accounts currently recorded in the state ledger.")
 		return
 	}
 	
-	// Iterate across active state keys to display balances
 	for addr, acc := range ledger.State {
 		formattedAddr := addr
 		if len(addr) >= 16 && addr[:4] != "etrb" {
@@ -138,38 +136,32 @@ func handleCheckBalance() {
 }
 
 // handleSendTx constructs, signs via post-quantum cryptography, and broadcasts
-// a state-transition transaction payload into the local node mempool queue.
-func handleSendTx(recipient string, amount uint64, fee uint64) {
-	// Enforce strict parameter validation checks
+// a state-transition transaction payload into the local node mempool queue using a specific wallet.
+func handleSendTx(recipient string, amount uint64, fee uint64, walletFile string) {
 	if recipient == "" || amount == 0 {
 		fmt.Println("[CLI] Incomplete arguments! Please utilize the -to and -amount flags.")
-		fmt.Println("Example: go run eterbit.go send -to <address> -amount 100")
+		fmt.Println("Example: go run eterbit.go send -to <address> -amount 100 -wallet wallet2.json")
 		return
 	}
 
-	// Initialize transaction origin ledger subsystem context
 	ledger := node.InitializeLedger("eterbit_data", 3, "SYSTEM_SENDER")
 	
-	// Load localized sender wallet credentials from disk storage
-	addrA, privKeyA, pubBytesA, err := wallet.CreateOrLoadWallet()
+	filePath := filepath.Join("eterbit_data", walletFile)
+	addrA, privKeyA, pubBytesA, err := wallet.LoadWalletCustom(filePath)
 	if err != nil {
-		fmt.Printf("[CLI] Failed to load local wallet: %v\n", err)
+		fmt.Printf("[CLI] Failed to load wallet from %s: %v\n", filePath, err)
 		return
 	}
 
-	// Provision default bootstrapping balance if sender state is uninitialized
 	if _, exists := ledger.State[addrA]; !exists {
 		ledger.State[addrA] = &node.AccountState{Balance: 1000, Nonce: 0}
 	}
 
-	// Retrieve active transactional nonce sequence value
 	currentNonce := ledger.State[addrA].Nonce
-	fmt.Printf("[CLI] Constructing transaction from %s to %s...\n", addrA[:16], recipient)
+	fmt.Printf("[CLI] Constructing transaction from %s (via %s) to %s...\n", addrA[:16], walletFile, recipient)
 
-	// Execute cryptographic signing mechanism and formulate transfer payload object
 	tx := core.NewTransfer(privKeyA, pubBytesA, recipient, amount, fee, currentNonce)
 	
-	// Commit signed transaction instance into the volatile mempool structure
 	if ledger.AddToMempool(tx) {
 		fmt.Printf("[CLI] Transaction successfully committed to mempool! ID: %s\n", tx.ComputeID()[:16])
 	}
@@ -181,24 +173,19 @@ func handleRunNode() {
 	fmt.Println("[SYS] Booting Eterbit Live Node with LevelDB Storage Engine...")
 	fmt.Println("--------------------------------------------------------------------------------")
 
-	// Resolve local miner node operator identity credentials
-	addrMiner, _, pubBytesMiner, err := wallet.CreateOrLoadWallet()
+	addrMiner, _, pubBytesMiner, err := wallet.LoadWalletCustom("eterbit_data/keystore.json")
 	if err != nil {
-		fmt.Printf("[NODE] Failed to load miner wallet: %v\n", err)
+		fmt.Printf("[NODE] Failed to load default miner wallet (keystore.json): %v\n", err)
 		return
 	}
 
-	// Bind validator address context to the transactional ledger storage engine
 	ledger := node.InitializeLedger("eterbit_data", 3, addrMiner)
-	
-	// Launch background block production worker routines with periodic intervals
 	ledger.StartLiveWorker(4 * time.Second)
 
 	fmt.Printf("[NODE] Active validator miner address: %s (Pub: %s...)\n", addrMiner[:16], hex.EncodeToString(pubBytesMiner[:8]))
 	fmt.Println("[NODE] Node operational daemon running. Press Ctrl+C to terminate process.")
 	fmt.Println("--------------------------------------------------------------------------------")
 
-	// Block execution routine indefinitely to maintain persistent node uptime
 	select {}
 }
 
