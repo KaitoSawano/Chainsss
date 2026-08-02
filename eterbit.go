@@ -14,23 +14,27 @@ import (
 	_ "github.com/cloudflare/circl/sign/dilithium/mode3"
 )
 
+// main initializes the command-line interface multiplexer, parses command arguments,
+// and routes execution flow to the appropriate handler function based on user input.
 func main() {
-	// Definisikan argumen CLI
+	// Initialize distinct FlagSets for modular CLI subcommand routing
 	walletCreateCmd := flag.NewFlagSet("create", flag.ExitOnError)
 	balanceCmd := flag.NewFlagSet("balance", flag.ExitOnError)
 	sendCmd := flag.NewFlagSet("send", flag.ExitOnError)
 	nodeCmd := flag.NewFlagSet("node", flag.ExitOnError)
 
-	// Argumen untuk perintah send
-	sendRecipient := sendCmd.String("to", "", "Alamat penerima (etrb...)")
-	sendAmount := sendCmd.Uint64("amount", 0, "Jumlah koin yang dikirim")
-	sendFee := sendCmd.Uint64("fee", 5, "Biaya transaksi (fee)")
+	// Bind flags configuration for the transfer execution command
+	sendRecipient := sendCmd.String("to", "", "Recipient destination address (etrb...)")
+	sendAmount := sendCmd.Uint64("amount", 0, "Transfer value amount denominated in base units")
+	sendFee := sendCmd.Uint64("fee", 5, "Transaction execution gas/network fee allocation")
 
+	// Validate presence of operational arguments
 	if len(os.Args) < 2 {
 		printUsage()
 		os.Exit(1)
 	}
 
+	// Switch execution context based on the primary subcommand token
 	switch os.Args[1] {
 	case "create":
 		walletCreateCmd.Parse(os.Args[2:])
@@ -50,33 +54,39 @@ func main() {
 	}
 }
 
+// printUsage outputs the standard command reference menu and available operational flags
+// to the standard output terminal interface.
 func printUsage() {
 	fmt.Println("================================================================================")
-	fmt.Println(" 🚀 ETERBIT BLOCKCHAIN CLI MANAGER")
+	fmt.Println(" ETERBIT BLOCKCHAIN CLI MANAGER")
 	fmt.Println("================================================================================")
-	fmt.Println("Gunakan perintah berikut:")
-	fmt.Println("  go run eterbit.go create            - Buat atau muat dompet lokal")
-	fmt.Println("  go run eterbit.go balance           - Cek status/saldo akun di state")
-	fmt.Println("  go run eterbit.go send -to <addr> -amount <val> -fee <val> - Kirim koin")
-	fmt.Println("  go run eterbit.go node              - Jalankan penambang & live mempool node")
+	fmt.Println("Available commands:")
+	fmt.Println("  go run eterbit.go create            - Generate or load local cryptographic wallet")
+	fmt.Println("  go run eterbit.go balance           - Inspect account states and balances in LevelDB")
+	fmt.Println("  go run eterbit.go send -to <addr> -amount <val> -fee <val> - Broadcast transfer tx")
+	fmt.Println("  go run eterbit.go node              - Initialize validator miner and live mempool daemon")
 	fmt.Println("================================================================================")
 }
 
+// handleCreateWallet checks for the existence of a persistent keystore context.
+// If absent, it provisions a cryptographically secure post-quantum keypair and serializes it.
 func handleCreateWallet() {
+	// Attempt to resolve pre-existing local keystore mapping
 	existing, err := wallet.LoadWallet()
 	if err == nil {
 		fmt.Println("================================================================================")
-		fmt.Println(" 📁 DOMPET LOKAL SUDAH ADA (KESTORE)")
+		fmt.Println(" LOCAL WALLET ALREADY EXISTS (KEYSTORE)")
 		fmt.Println("================================================================================")
-		fmt.Printf(" Alamat (Address) : %s\n", existing.Address)
+		fmt.Printf(" Address          : %s\n", existing.Address)
 		fmt.Println("--------------------------------------------------------------------------------")
-		fmt.Println(" Dompet Anda aman tersimpan di storage/wallet/keystore.json")
+		fmt.Println(" Wallet securely loaded from eterbit_data/keystore.json")
 		return
 	}
 
+	// Trigger generation of new asymmetric PQC parameters
 	addr, pubKey, privKey, err := wallet.CreateOrLoadWallet()
 	if err != nil {
-		fmt.Printf("[WALLET] Gagal membuat kunci: %v\n", err)
+		fmt.Printf("[WALLET] Failed to generate cryptographic keys: %v\n", err)
 		return
 	}
 
@@ -84,84 +94,104 @@ func handleCreateWallet() {
 	privBytes, _ := privKey.MarshalBinary()
 
 	fmt.Println("================================================================================")
-	fmt.Println(" 🔑 DOMPET KUSTOM ETERBIT BERHASIL DIBUAT & DISIMPAN")
+	fmt.Println(" ETERBIT CUSTOM WALLET GENERATED & PERSISTED SUCCESSFULLY")
 	fmt.Println("================================================================================")
-	fmt.Printf(" Alamat (Address) : %s\n", addr)
+	fmt.Printf(" Address          : %s\n", addr)
 	fmt.Printf(" Public Key (Hex) : %s\n", hex.EncodeToString(pubBytes))
 	fmt.Printf(" Private Key (Hex): %s\n", hex.EncodeToString(privBytes))
 	fmt.Println("--------------------------------------------------------------------------------")
-	fmt.Println(" ⚠️  Disimpan otomatis ke storage/wallet/keystore.json")
+	fmt.Println(" Automatically persisted to eterbit_data/keystore.json")
 }
 
+// handleCheckBalance initializes the persistence engine state ledger interface
+// and inspects all recorded account states and nonces currently committed.
 func handleCheckBalance() {
+	// Instantiate ledger reference mapped to the designated database storage directory
 	ledger := node.InitializeLedger("eterbit_data", 3, "SYSTEM_VIEWER")
 	fmt.Println("================================================================================")
-	fmt.Println(" 📊 SALDO AKUN TERDAFTAR DI LEVELDB")
+	fmt.Println(" REGISTERED ACCOUNT BALANCES IN LEVELDB")
 	fmt.Println("================================================================================")
+	
+	// Evaluate state ledger cardinality
 	if len(ledger.State) == 0 {
-		fmt.Println(" Belum ada akun yang tercatat di state ledger.")
+		fmt.Println(" No accounts currently recorded in the state ledger.")
 		return
 	}
+	
+	// Iterate across active state keys to display balances
 	for addr, acc := range ledger.State {
 		formattedAddr := addr
 		if len(addr) >= 16 && addr[:4] != "etrb" {
 			formattedAddr = "etrb" + addr
 		}
-		fmt.Printf(" Alamat: %s... | Saldo: %d Koin | Nonce: %d\n", formattedAddr[:16], acc.Balance, acc.Nonce)
+		fmt.Printf(" Address: %s... | Balance: %d Coins | Nonce: %d\n", formattedAddr[:16], acc.Balance, acc.Nonce)
 	}
 	fmt.Println("================================================================================")
 }
 
+// handleSendTx constructs, signs via post-quantum cryptography, and broadcasts
+// a state-transition transaction payload into the local node mempool queue.
 func handleSendTx(recipient string, amount uint64, fee uint64) {
+	// Enforce strict parameter validation checks
 	if recipient == "" || amount == 0 {
-		fmt.Println("[CLI] ❌ Argumen tidak lengkap! Gunakan flag -to dan -amount.")
-		fmt.Println("Contoh: go run eterbit.go send -to <alamat> -amount 100")
+		fmt.Println("[CLI] Incomplete arguments! Please utilize the -to and -amount flags.")
+		fmt.Println("Example: go run eterbit.go send -to <address> -amount 100")
 		return
 	}
 
+	// Initialize transaction origin ledger subsystem context
 	ledger := node.InitializeLedger("eterbit_data", 3, "SYSTEM_SENDER")
 	
-	// Muat dompet lokal pengirim
+	// Load localized sender wallet credentials from disk storage
 	addrA, pubKeyA, privKeyA, err := wallet.CreateOrLoadWallet()
 	if err != nil {
-		fmt.Printf("[CLI] Gagal memuat dompet lokal: %v\n", err)
+		fmt.Printf("[CLI] Failed to load local wallet: %v\n", err)
 		return
 	}
 
 	pubBytesA := pubKeyA.Bytes()
 
+	// Provision default genesis-like bootstrapping balance if sender state is uninitialized
 	if _, exists := ledger.State[addrA]; !exists {
 		ledger.State[addrA] = &node.AccountState{Balance: 1000, Nonce: 0}
 	}
 
+	// Retrieve active transactional nonce sequence value
 	currentNonce := ledger.State[addrA].Nonce
-	fmt.Printf("[CLI] Membuat transaksi dari %s ke %s...\n", addrA[:16], recipient)
+	fmt.Printf("[CLI] Constructing transaction from %s to %s...\n", addrA[:16], recipient)
 
-	// Perbaikan di sini: menambahkan & sebelum privKeyA agar sesuai tipe pointer
+	// Execute cryptographic signing mechanism and formulate transfer payload object
 	tx := core.NewTransfer(&privKeyA, pubBytesA, recipient, amount, fee, currentNonce)
 	
+	// Commit signed transaction instance into the volatile mempool structure
 	if ledger.AddToMempool(tx) {
-		fmt.Printf("[CLI] ✅ Transaksi berhasil dimasukkan ke mempool! ID: %s\n", tx.ComputeID()[:16])
+		fmt.Printf("[CLI] Transaction successfully committed to mempool! ID: %s\n", tx.ComputeID()[:16])
 	}
 }
 
+// handleRunNode boots up the persistent consensus worker daemon thread,
+// loading validator parameters and activating automated block generation cycles.
 func handleRunNode() {
-	fmt.Println("[SYS] Memulai Live Node Eterbit dengan LevelDB Storage...")
+	fmt.Println("[SYS] Booting Eterbit Live Node with LevelDB Storage Engine...")
 	fmt.Println("--------------------------------------------------------------------------------")
 
-	// Penambang menggunakan dompet lokal agar hadiah blok masuk ke akun Anda sendiri
+	// Resolve local miner node operator identity credentials
 	addrMiner, pubKeyMiner, _, err := wallet.CreateOrLoadWallet()
 	if err != nil {
-		fmt.Printf("[NODE] Gagal memuat dompet penambang: %v\n", err)
+		fmt.Printf("[NODE] Failed to load miner wallet: %v\n", err)
 		return
 	}
 
+	// Bind validator address context to the transactional ledger storage engine
 	ledger := node.InitializeLedger("eterbit_data", 3, addrMiner)
+	
+	// Launch background block production worker routines with periodic intervals
 	ledger.StartLiveWorker(4 * time.Second)
 
-	fmt.Printf("[NODE] Penambang aktif dengan alamat: %s (Pub: %s...)\n", addrMiner[:16], hex.EncodeToString(pubKeyMiner.Bytes()[:8]))
-	fmt.Println("[NODE] Node berjalan. Tekan Ctrl+C untuk menghentikan.")
+	fmt.Printf("[NODE] Active validator miner address: %s (Pub: %s...)\n", addrMiner[:16], hex.EncodeToString(pubKeyMiner.Bytes()[:8]))
+	fmt.Println("[NODE] Node operational daemon running. Press Ctrl+C to terminate process.")
 	fmt.Println("--------------------------------------------------------------------------------")
 
+	// Block execution routine indefinitely to maintain persistent node uptime
 	select {}
 }

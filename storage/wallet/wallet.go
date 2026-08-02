@@ -10,6 +10,7 @@ import (
 	"github.com/cloudflare/circl/sign/dilithium/mode3"
 )
 
+// WalletData defines the structural schema for serializing cryptographic keypairs and address mappings.
 type WalletData struct {
 	Address    string `json:"address"`
 	PublicKey  string `json:"public_key"`
@@ -19,7 +20,7 @@ type WalletData struct {
 const walletDir = "eterbit_data"
 const walletFile = "keystore.json"
 
-// SaveWallet menyimpan dompet ke file JSON lokal
+// SaveWallet serializes the wallet credential parameters and commits them to a local JSON keystore file.
 func SaveWallet(addr, pubHex, privHex string) error {
 	if err := os.MkdirAll(walletDir, 0755); err != nil {
 		return err
@@ -39,7 +40,7 @@ func SaveWallet(addr, pubHex, privHex string) error {
 	return os.WriteFile(filepath.Join(walletDir, walletFile), data, 0600)
 }
 
-// LoadWallet memuat dompet yang tersimpan di lokal
+// LoadWallet attempts to read and deserialize the localized keystore mapping from disk storage.
 func LoadWallet() (*WalletData, error) {
 	filePath := filepath.Join(walletDir, walletFile)
 	data, err := os.ReadFile(filePath)
@@ -55,7 +56,8 @@ func LoadWallet() (*WalletData, error) {
 	return &w, nil
 }
 
-// CreateOrLoadWallet membuat dompet baru jika belum ada, atau memuat yang lama
+// CreateOrLoadWallet checks for an existing keystore file. If found, it loads and decodes the keys;
+// otherwise, it provisions a new post-quantum cryptographic keypair and persists it.
 func CreateOrLoadWallet() (string, mode3.PublicKey, mode3.PrivateKey, error) {
 	existing, err := LoadWallet()
 	if err == nil {
