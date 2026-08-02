@@ -1,13 +1,15 @@
 package wallet
 
 import (
-	"crypto/rand"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"encoding/hex"
 	"encoding/json"
+	"math/big"
 	"os"
 	"path/filepath"
 
-	"github.com/cloudflare/circl/sign/dilithium/mode3"
+	"eterbit/crypto"
 )
 
 // WalletData defines the structural schema for serializing cryptographic keypairs and address mappings.
@@ -57,34 +59,39 @@ func LoadWallet() (*WalletData, error) {
 }
 
 // CreateOrLoadWallet checks for an existing keystore file. If found, it loads and decodes the keys;
-// otherwise, it provisions a new post-quantum cryptographic keypair and persists it.
-func CreateOrLoadWallet() (string, mode3.PublicKey, mode3.PrivateKey, error) {
+// otherwise, it provisions a new custom cryptographic keypair and persists it.
+func CreateOrLoadWallet() (string, *ecdsa.PrivateKey, error) {
 	existing, err := LoadWallet()
 	if err == nil {
-		pubBytes, _ := hex.DecodeString(existing.PublicKey)
 		privBytes, _ := hex.DecodeString(existing.PrivateKey)
+		pubBytes, _ := hex.DecodeString(existing.PublicKey)
 
-		var pubKey mode3.PublicKey
-		var privKey mode3.PrivateKey
-		copy(pubKey.Bytes(), pubBytes)
-		privKey.UnmarshalBinary(privBytes)
+		x := new(big.Int).SetBytes(pubBytes[:len(pubBytes)/2])
+		y := new(big.Int).SetBytes(pubBytes[len(pubBytes)/2:])
 
-		return existing.Address, pubKey, privKey, nil
+		priv := &ecdsa.PrivateKey{
+			PublicKey: ecdsa.PublicKey{
+				Curve: elliptic.P256(),
+				X:     x,
+				Y:     y,
+			},
+			D: new(big.Int).SetBytes(privBytes),
+		}
+
+		return existing.Address, priv, nil
 	}
 
-	pubKey, privKey, err := mode3.GenerateKey(rand.Reader)
+	priv, err := crypto.GenerateKey()
 	if err != nil {
-		return "", mode3.PublicKey{}, mode3.PrivateKey{}, err
+		return "", nil, err
 	}
 
-	pubBytes := pubKey.Bytes()
-	rawHex := hex.EncodeToString(pubBytes[:14])
-	addr := "etrb" + rawHex
+	addr := crypto.PubkeyToAddress(&priv.PublicKey)
+	pubBytes := elliptic.Marshal(priv.Curve, priv.PublicKey.X, priv.PublicKey.Y)
 	pubHex := hex.EncodeToString(pubBytes)
-	privBytes, _ := privKey.MarshalBinary()
-	privHex := hex.EncodeToString(privBytes)
+	privHex := hex.EncodeToString(priv.D.Bytes())
 
 	SaveWallet(addr, pubHex, privHex)
 
-	return addr, *pubKey, *privKey, nil
+	return addr, priv, nil
 }

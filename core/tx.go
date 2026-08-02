@@ -1,16 +1,15 @@
 package core
 
 import (
-	"crypto"
-	"crypto/rand"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"encoding/hex"
 	"fmt"
 
-	"github.com/cloudflare/circl/sign/dilithium/mode3"
-	"golang.org/x/crypto/sha3"
+	"eterbit/crypto"
 )
 
-// Transfer represents a state-transition transaction payload containing sender public key, recipient address, transfer values, nonce, and cryptographic post-quantum signature.
+// Transfer represents a state-transition transaction payload containing sender public key, recipient address, transfer values, nonce, and signature.
 type Transfer struct {
 	SenderPubKey []byte `json:"sender_pub_key"`
 	Recipient    string `json:"recipient"`
@@ -20,8 +19,8 @@ type Transfer struct {
 	Signature    []byte `json:"signature"`
 }
 
-// NewTransfer constructs a new Transfer transaction instance, serializes its payload, and signs it using the provided Dilithium private key.
-func NewTransfer(priv *mode3.PrivateKey, pub []byte, recipient string, value, fee, nonce uint64) *Transfer {
+// NewTransfer constructs a new Transfer transaction instance, computes its Keccak hash payload, and signs it using the ECDSA private key.
+func NewTransfer(priv *ecdsa.PrivateKey, pub []byte, recipient string, value, fee, nonce uint64) *Transfer {
 	tx := &Transfer{
 		SenderPubKey: pub,
 		Recipient:    recipient,
@@ -29,8 +28,9 @@ func NewTransfer(priv *mode3.PrivateKey, pub []byte, recipient string, value, fe
 		Fee:          fee,
 		Nonce:        nonce,
 	}
-	
-	sig, err := priv.Sign(rand.Reader, tx.PayloadBytes(), crypto.Hash(0))
+
+	hash := crypto.Keccak256(tx.PayloadBytes())
+	sig, err := crypto.Sign(hash, priv)
 	if err != nil {
 		panic(err)
 	}
@@ -38,24 +38,31 @@ func NewTransfer(priv *mode3.PrivateKey, pub []byte, recipient string, value, fe
 	return tx
 }
 
-// PayloadBytes serializes the primary transactional parameters into a canonical byte slice representation for signing and verification.
+// PayloadBytes serializes the primary transactional parameters into a canonical byte slice representation for hashing.
 func (tx *Transfer) PayloadBytes() []byte {
 	return []byte(fmt.Sprintf("%s-%d-%d-%d", tx.Recipient, tx.Value, tx.Fee, tx.Nonce))
 }
 
-// Verify validates the cryptographic post-quantum signature attached to the transaction against the sender's public key.
+// Verify validates the digital signature attached to the transaction against the sender's public key using local crypto primitives.
 func (tx *Transfer) Verify() bool {
-	var pub mode3.PublicKey
-	if err := pub.UnmarshalBinary(tx.SenderPubKey); err != nil {
+	if len(tx.SenderPubKey) == 0 {
 		return false
 	}
-	return mode3.Verify(&pub, tx.PayloadBytes(), tx.Signature)
+	x := new(bigIntFromBytes(tx.SenderPubKey[:len(tx.SenderPubKey)/2])) // disesuaikan dengan parsing pubkey
+	// Sederhanakan rekonstruksi public key untuk verifikasi
+	pubCurve := elliptic.P256()
+	pubX, pubY := elliptic.Unmarshal(pubCurve, tx.SenderPubKey)
+	if pubX == nil {
+		return false
+	}
+	pubKey := &ecdsa.PublicKey{Curve: pubCurve, X: pubX, Y: pubY}
+
+	hash := crypto.Keccak256(tx.PayloadBytes())
+	return crypto.Verify(pubKey, hash, tx.Signature)
 }
 
-// ComputeID generates a unique cryptographic hash identifier string for the transaction instance based on its keys, payload, and signature.
+// ComputeID generates a unique cryptographic hash identifier string for the transaction instance.
 func (tx *Transfer) ComputeID() string {
-	hasher := sha3.New256()
-	hasher.Write(append(tx.SenderPubKey, tx.PayloadBytes()...))
-	hasher.Write(tx.Signature)
-	return hex.EncodeToString(hasher.Sum(nil))
+	hasher := crypto.Keccak256(append(tx.SenderPubKey, tx.PayloadBytes()...))
+	return hex.EncodeToString(hasher)
 }
