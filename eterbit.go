@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto/rand"
 	"encoding/hex"
 	"flag"
 	"fmt"
@@ -10,6 +9,7 @@ import (
 
 	"eterbit/core"
 	"eterbit/node"
+	"eterbit/storage/wallet"
 
 	"github.com/cloudflare/circl/sign/dilithium/mode3"
 )
@@ -55,7 +55,7 @@ func printUsage() {
 	fmt.Println(" 🚀 ETERBIT BLOCKCHAIN CLI MANAGER")
 	fmt.Println("================================================================================")
 	fmt.Println("Gunakan perintah berikut:")
-	fmt.Println("  go run eterbit.go create            - Buat dompet & kunci baru")
+	fmt.Println("  go run eterbit.go create            - Buat atau muat dompet lokal")
 	fmt.Println("  go run eterbit.go balance           - Cek status/saldo akun di state")
 	fmt.Println("  go run eterbit.go send -to <addr> -amount <val> -fee <val> - Kirim koin")
 	fmt.Println("  go run eterbit.go node              - Jalankan penambang & live mempool node")
@@ -63,26 +63,34 @@ func printUsage() {
 }
 
 func handleCreateWallet() {
-	pubKey, privKey, err := mode3.GenerateKey(rand.Reader)
+	existing, err := wallet.LoadWallet()
+	if err == nil {
+		fmt.Println("================================================================================")
+		fmt.Println(" 📁 DOMPET LOKAL SUDAH ADA (KESTORE)")
+		fmt.Println("================================================================================")
+		fmt.Printf(" Alamat (Address) : %s\n", existing.Address)
+		fmt.Println("--------------------------------------------------------------------------------")
+		fmt.Println(" Dompet Anda aman tersimpan di storage/wallet/keystore.json")
+		return
+	}
+
+	addr, pubKey, privKey, err := wallet.CreateOrLoadWallet()
 	if err != nil {
 		fmt.Printf("[WALLET] Gagal membuat kunci: %v\n", err)
 		return
 	}
 
 	pubBytes := pubKey.Bytes()
-	rawHex := hex.EncodeToString(pubBytes[:14])
-	addr := "etrb" + rawHex
-	
 	privBytes, _ := privKey.MarshalBinary()
 
 	fmt.Println("================================================================================")
-	fmt.Println(" 🔑 DOMPET KUSTOM ETERBIT BERHASIL DIBUAT")
+	fmt.Println(" 🔑 DOMPET KUSTOM ETERBIT BERHASIL DIBUAT & DISIMPAN")
 	fmt.Println("================================================================================")
 	fmt.Printf(" Alamat (Address) : %s\n", addr)
 	fmt.Printf(" Public Key (Hex) : %s\n", hex.EncodeToString(pubBytes))
 	fmt.Printf(" Private Key (Hex): %s\n", hex.EncodeToString(privBytes))
 	fmt.Println("--------------------------------------------------------------------------------")
-	fmt.Println(" ⚠️  Simpan Private Key Anda dengan aman!")
+	fmt.Println(" ⚠️  Disimpan otomatis ke storage/wallet/keystore.json")
 }
 
 func handleCheckBalance() {
@@ -113,10 +121,14 @@ func handleSendTx(recipient string, amount uint64, fee uint64) {
 
 	ledger := node.InitializeLedger("eterbit_data", 3, "SYSTEM_SENDER")
 	
-	pubKeyA, privKeyA, _ := mode3.GenerateKey(rand.Reader)
+	// Muat dompet lokal pengirim
+	addrA, pubKeyA, privKeyA, err := wallet.CreateOrLoadWallet()
+	if err != nil {
+		fmt.Printf("[CLI] Gagal memuat dompet lokal: %v\n", err)
+		return
+	}
+
 	pubBytesA := pubKeyA.Bytes()
-	rawHexA := hex.EncodeToString(pubBytesA[:14])
-	addrA := "etrb" + rawHexA
 
 	if _, exists := ledger.State[addrA]; !exists {
 		ledger.State[addrA] = &node.AccountState{Balance: 1000, Nonce: 0}
@@ -136,14 +148,17 @@ func handleRunNode() {
 	fmt.Println("[SYS] Memulai Live Node Eterbit dengan LevelDB Storage...")
 	fmt.Println("--------------------------------------------------------------------------------")
 
-	pubKeyM, _, _ := mode3.GenerateKey(rand.Reader)
-	rawHexM := hex.EncodeToString(pubKeyM.Bytes()[:14])
-	addrMiner := "etrb" + rawHexM
+	// Penambang menggunakan dompet lokal agar hadiah blok masuk ke akun Anda sendiri
+	addrMiner, pubKeyMiner, _, err := wallet.CreateOrLoadWallet()
+	if err != nil {
+		fmt.Printf("[NODE] Gagal memuat dompet penambang: %v\n", err)
+		return
+	}
 
 	ledger := node.InitializeLedger("eterbit_data", 3, addrMiner)
 	ledger.StartLiveWorker(4 * time.Second)
 
-	fmt.Printf("[NODE] Penambang aktif dengan alamat: %s\n", addrMiner[:16])
+	fmt.Printf("[NODE] Penambang aktif dengan alamat: %s (Pub: %s...)\n", addrMiner[:16], hex.EncodeToString(pubKeyMiner.Bytes()[:8]))
 	fmt.Println("[NODE] Node berjalan. Tekan Ctrl+C untuk menghentikan.")
 	fmt.Println("--------------------------------------------------------------------------------")
 
