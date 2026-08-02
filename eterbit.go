@@ -22,6 +22,7 @@ func main() {
 	balanceCmd := flag.NewFlagSet("balance", flag.ExitOnError)
 	sendCmd := flag.NewFlagSet("send", flag.ExitOnError)
 	nodeCmd := flag.NewFlagSet("node", flag.ExitOnError)
+	explorerCmd := flag.NewFlagSet("explorer", flag.ExitOnError)
 
 	// Bind flags configuration for the transfer execution command
 	sendRecipient := sendCmd.String("to", "", "Recipient destination address (etrb...)")
@@ -48,6 +49,9 @@ func main() {
 	case "node":
 		nodeCmd.Parse(os.Args[2:])
 		handleRunNode()
+	case "explorer":
+		explorerCmd.Parse(os.Args[2:])
+		handleExploreBlockchain()
 	default:
 		printUsage()
 		os.Exit(1)
@@ -65,6 +69,7 @@ func printUsage() {
 	fmt.Println("  go run eterbit.go balance            - Inspect account states and balances in LevelDB")
 	fmt.Println("  go run eterbit.go send -to <addr> -amount <val> -fee <val> - Broadcast transfer tx")
 	fmt.Println("  go run eterbit.go node               - Initialize validator miner and live mempool daemon")
+	fmt.Println("  go run eterbit.go explorer           - Inspect blockchain blocks and transaction ledger")
 	fmt.Println("================================================================================")
 }
 
@@ -195,4 +200,9 @@ func handleRunNode() {
 
 	// Block execution routine indefinitely to maintain persistent node uptime
 	select {}
+}
+
+// handleExploreBlockchain invokes the core explorer routine to display stored block details.
+func handleExploreBlockchain() {
+	core.InspectBlockchain("eterbit_data")
 }
