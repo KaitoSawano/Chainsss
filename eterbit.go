@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"eterbit/core"
+	"eterbit/internal/p2p"
 	"eterbit/node"
 	"eterbit/storage/wallet"
 
@@ -52,6 +53,9 @@ func main() {
 	sendFee := sendCmd.Uint64("fee", 2, "Transaction fee")
 	walletSource := sendCmd.String("wallet", "keystore.json", "Wallet filename to use")
 
+	nodePort := nodeCmd.String("port", ":8333", "P2P listening port for the node")
+	nodeConnect := nodeCmd.String("connect", "", "Peer address to connect (e.g., localhost:8333)")
+
 	// Validate whether adequate command-line arguments have been provided by the executing operator.
 	if len(os.Args) < 2 {
 		printUsage()
@@ -71,7 +75,7 @@ func main() {
 		handleSendTx(*sendRecipient, *sendAmount, *sendFee, *walletSource)
 	case "node":
 		nodeCmd.Parse(os.Args[2:])
-		handleRunNode()
+		handleRunNode(*nodePort, *nodeConnect)
 	case "explorer":
 		explorerCmd.Parse(os.Args[2:])
 		handleExploreBlockchain()
@@ -94,7 +98,7 @@ func printUsage() {
 	fmt.Println("  go run eterbit.go create -name <file.json>")
 	fmt.Println("  go run eterbit.go balance")
 	fmt.Println("  go run eterbit.go send -to <addr> -amount <val> [-fee <val>] [-wallet <file>]")
-	fmt.Println("  go run eterbit.go node")
+	fmt.Println("  go run eterbit.go node [--port :port] [--connect host:port]")
 	fmt.Println("  go run eterbit.go mine")
 	fmt.Println("  go run eterbit.go explorer")
 	fmt.Println("================================================================================")
@@ -248,7 +252,7 @@ func handleSendTx(recipient string, amount uint64, fee uint64, walletFile string
 }
 
 // handleRunNode initiates a continuous background validation daemon process that periodically polls and processes pending transactions.
-func handleRunNode() {
+func handleRunNode(port string, connectPeer string) {
 	fmt.Println("[SYS] Booting Eterbit Live Node (Bitcoin Core Style)...")
 	
 	// Load the default node mining beneficiary address from the core keystore configuration.
@@ -261,6 +265,40 @@ func handleRunNode() {
 	// Initialize the persistent ledger instance tied to the active validator address.
 	ledger := node.InitializeLedger("eterbit_data", 3, addrMiner)
 	
+	// Initialize P2P server
+	server := p2p.NewServer(port)
+
+	// Define P2P callbacks
+	onTx := func(tx *core.Transfer) {
+		fmt.Println("[P2P] Received transaction from network peer, adding to mempool...")
+		ledger.Mu.Lock()
+		ledger.Mempool = append(ledger.Mempool, tx)
+		ledger.Mu.Unlock()
+		
+		// Persist to disk mempool
+		diskMempool := loadMempoolFromDisk()
+		diskMempool = append(diskMempool, tx)
+		saveMempoolToDisk(diskMempool)
+	}
+
+	onBlock := func(block *core.LedgerBlock) {
+		fmt.Printf("[P2P] Received new block #%d from network peer!\n", block.Index)
+	}
+
+	// Start P2P listener in background
+	go func() {
+		if err := server.StartListening(onBlock, onTx); err != nil {
+			fmt.Printf("[P2P] Server error: %v\n", err)
+		}
+	}()
+
+	// Connect to initial peer if provided
+	if connectPeer != "" {
+		if err := server.ConnectToPeer(connectPeer); err != nil {
+			fmt.Printf("[P2P] Failed to connect to peer %s: %v\n", connectPeer, err)
+		}
+	}
+
 	// Spawn an asynchronous background worker goroutine to manage recurring block generation loops.
 	go func() {
 		for {
@@ -280,6 +318,7 @@ func handleRunNode() {
 				// Execute the computational block mining procedure.
 				ledger.MineBlock()
 
+				// Broadcast newly mined block or perform updates if needed
 				// Flush and clear the disk mempool storage file following successful block commitment.
 				saveMempoolToDisk([]*core.Transfer{})
 			}
@@ -288,6 +327,7 @@ func handleRunNode() {
 
 	// Output operational status diagnostics for the running background node daemon.
 	fmt.Printf("[NODE] Active validator miner: %s\n", addrMiner)
+	fmt.Printf("[NODE] P2P Server listening on %s\n", port)
 	fmt.Println("[NODE] Node operational and listening. Press Ctrl+C to terminate.")
 	
 	// Block the main execution thread indefinitely to maintain background daemon activity.

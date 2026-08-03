@@ -1,3 +1,18 @@
+// Copyright (c) 2026 AldianOkto. All rights reserved.
+// Copyright (c) 2026 Eterbit Core.
+// Use of this source code is governed by the Apache License.
+// that can be found in the root directory of this repository.
+// Project: Eterbit / Blockchain Core
+//
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at. <http://www.apache.org/licenses/LICENSE-2.0>
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package p2p
 
 import (
@@ -5,10 +20,11 @@ import (
 	"fmt"
 	"net"
 	"sync"
-	
+
 	"eterbit/core"
 )
 
+// MessageType defines the classification of network messages transmitted across nodes.
 type MessageType string
 
 const (
@@ -16,17 +32,20 @@ const (
 	MsgBlock MessageType = "BLOCK"
 )
 
+// Envelope wraps network payloads with a specific type header for transmission parsing.
 type Envelope struct {
 	Type    MessageType     `json:"type"`
 	Payload json.RawMessage `json:"payload"`
 }
 
+// Server represents the P2P networking node manager.
 type Server struct {
 	Address string
 	Peers   map[string]net.Conn
 	Mu      sync.Mutex
 }
 
+// NewServer initializes a new P2P network server instance.
 func NewServer(address string) *Server {
 	return &Server{
 		Address: address,
@@ -34,15 +53,15 @@ func NewServer(address string) *Server {
 	}
 }
 
-// StartListening membuka port TCP agar node bisa menerima koneksi dari node lain
-func (s *Server, onBlockReceived func(*core.LedgerBlock), onTxReceived func(*core.Transfer)) error {
+// StartListening binds to the specified TCP address and listens for incoming node connections.
+func (s *Server) StartListening(onBlockReceived func(*core.LedgerBlock), onTxReceived func(*core.Transfer)) error {
 	listener, err := net.Listen("tcp", s.Address)
 	if err != nil {
 		return err
 	}
 	defer listener.Close()
 
-	fmt.Printf("[P2P] Node listening on %s...\n", s.Address)
+	fmt.Printf("[P2P] Node networking server listening on %s...\n", s.Address)
 
 	for {
 		conn, err := listener.Accept()
@@ -53,6 +72,7 @@ func (s *Server, onBlockReceived func(*core.LedgerBlock), onTxReceived func(*cor
 	}
 }
 
+// handleConnection processes incoming message streams from established peer connections.
 func (s *Server) handleConnection(conn net.Conn, onBlock func(*core.LedgerBlock), onTx func(*core.Transfer)) {
 	defer conn.Close()
 	decoder := json.NewDecoder(conn)
@@ -77,7 +97,7 @@ func (s *Server) handleConnection(conn net.Conn, onBlock func(*core.LedgerBlock)
 	}
 }
 
-// Broadcast mengirim data (transaksi atau blok) ke semua peer yang terhubung
+// Broadcast distributes transaction or block payloads to all connected network peers.
 func (s *Server) Broadcast(msgType MessageType, data interface{}) {
 	s.Mu.Lock()
 	defer s.Mu.Unlock()
@@ -104,7 +124,7 @@ func (s *Server) Broadcast(msgType MessageType, data interface{}) {
 	}
 }
 
-// ConnectToPeer menyambungkan node ini ke node peer lain
+// ConnectToPeer establishes an outbound TCP connection to another active network peer.
 func (s *Server) ConnectToPeer(peerAddr string) error {
 	conn, err := net.Dial("tcp", peerAddr)
 	if err != nil {
@@ -115,6 +135,6 @@ func (s *Server) ConnectToPeer(peerAddr string) error {
 	s.Peers[peerAddr] = conn
 	s.Mu.Unlock()
 
-	fmt.Printf("[P2P] Successfully connected to peer: %s\n", peerAddr)
+	fmt.Printf("[P2P] Successfully connected to remote peer: %s\n", peerAddr)
 	return nil
 }
