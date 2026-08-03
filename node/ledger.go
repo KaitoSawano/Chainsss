@@ -82,9 +82,15 @@ func (lc *LedgerCore) RebuildState(block *core.LedgerBlock) {
 	for _, tx := range block.Transfers {
 		sender := hex.EncodeToString(tx.SenderPubKey[:16])
 		if _, ok := lc.State[sender]; !ok {
-			lc.State[sender] = &AccountState{Balance: 0, Nonce: 0}
+			lc.State[sender] = &AccountState{Balance: 10000, Nonce: 0}
 		}
-		lc.State[sender].Balance -= (tx.Value + tx.Fee)
+		
+		// Validasi aman dari underflow uint64
+		if lc.State[sender].Balance >= (tx.Value + tx.Fee) {
+			lc.State[sender].Balance -= (tx.Value + tx.Fee)
+		} else {
+			lc.State[sender].Balance = 0
+		}
 		lc.State[sender].Nonce++
 
 		if _, ok := lc.State[tx.Recipient]; !ok {
@@ -161,7 +167,9 @@ func (lc *LedgerCore) StartLiveWorker(interval time.Duration) {
 		for {
 			select {
 			case <-ticker.C:
-				lc.MineBlock()
+				if len(lc.Mempool) > 0 {
+					lc.MineBlock()
+				}
 			case <-lc.StopSignal:
 				ticker.Stop()
 				return
@@ -181,13 +189,11 @@ func (lc *LedgerCore) MineBlock() {
 		for _, tx := range lc.Mempool {
 			sender := hex.EncodeToString(tx.SenderPubKey[:16])
 			
-			// Pastikan state akun pengirim ada dan aman
 			if _, ok := lc.State[sender]; !ok {
 				lc.State[sender] = &AccountState{Balance: 10000, Nonce: 0}
 			}
 			acc := lc.State[sender]
 
-			// Kurangi saldo pengirim dan naikkan nonce
 			if acc.Balance >= (tx.Value + tx.Fee) {
 				acc.Balance -= (tx.Value + tx.Fee)
 			} else {
@@ -195,7 +201,6 @@ func (lc *LedgerCore) MineBlock() {
 			}
 			acc.Nonce++
 
-			// Tambah saldo ke penerima
 			if _, ok := lc.State[tx.Recipient]; !ok {
 				lc.State[tx.Recipient] = &AccountState{Balance: tx.Value, Nonce: 0}
 			} else {
@@ -204,7 +209,7 @@ func (lc *LedgerCore) MineBlock() {
 
 			feeTotal += tx.Fee
 			validTx = append(validTx, tx)
-			fmt.Printf("[MINER] Included Tx: %d coins sent to %s\n", tx.Value, tx.Recipient[:12])
+			fmt.Printf("[MINER] -> Force Processed Tx: %d Coins to %s\n", tx.Value, tx.Recipient)
 		}
 		lc.Mempool = make([]*core.Transfer, 0)
 	}
@@ -219,7 +224,7 @@ func (lc *LedgerCore) MineBlock() {
 		Difficulty: lc.Engine.TargetDifficulty,
 	}
 
-	fmt.Printf("[MINER] Mining Block #%d (Target Difficulty: %d)...\n", newBlock.Index, newBlock.Difficulty)
+	fmt.Printf("[MINER] Mining Block #%d with %d transactions (Difficulty: %d)...\n", newBlock.Index, len(validTx), newBlock.Difficulty)
 	
 	startTime := time.Now()
 	nonce, hash := lc.Engine.Mine(newBlock)

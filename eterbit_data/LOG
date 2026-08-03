@@ -1,34 +1,16 @@
 =============== Aug 3, 2026 (UTC) ===============
-05:21:33.553501 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
-05:21:33.580719 db@open opening
-05:21:33.587255 version@stat F·[] S·0B[] Sc·[]
-05:21:33.596580 db@janitor F·2 G·0
-05:21:33.596847 db@open done T·16.059769ms
+05:34:38.891390 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+05:34:38.925214 db@open opening
+05:34:38.929810 version@stat F·[] S·0B[] Sc·[]
+05:34:38.937406 db@janitor F·2 G·0
+05:34:38.937610 db@open done T·12.298231ms
 =============== Aug 3, 2026 (UTC) ===============
-05:21:55.607161 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
-05:21:55.613933 version@stat F·[] S·0B[] Sc·[]
-05:21:55.614131 db@open opening
-05:21:55.615871 journal@recovery F·1
-05:21:55.619203 journal@recovery recovering @1
-05:21:55.625730 memdb@flush created L0@2 N·6 S·543B "block_0,v1":"las..dex,v2"
-05:21:55.630529 version@stat F·[1] S·543B[543B] Sc·[0.25]
-05:21:55.649830 db@janitor F·3 G·0
-05:21:55.650014 db@open done T·35.821923ms
-=============== Aug 3, 2026 (UTC) ===============
-05:22:28.737534 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
-05:22:28.744648 version@stat F·[1] S·543B[543B] Sc·[0.25]
-05:22:28.744823 db@open opening
-05:22:28.746394 journal@recovery F·1
-05:22:28.749712 journal@recovery recovering @3
-05:22:28.758496 version@stat F·[1] S·543B[543B] Sc·[0.25]
-05:22:28.802697 db@janitor F·3 G·0
-05:22:28.802968 db@open done T·58.090385ms
-=============== Aug 3, 2026 (UTC) ===============
-05:22:36.316235 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
-05:22:36.329343 version@stat F·[1] S·543B[543B] Sc·[0.25]
-05:22:36.329620 db@open opening
-05:22:36.331531 journal@recovery F·1
-05:22:36.336283 journal@recovery recovering @5
-05:22:36.341086 version@stat F·[1] S·543B[543B] Sc·[0.25]
-05:22:36.362425 db@janitor F·3 G·0
-05:22:36.362682 db@open done T·33.016846ms
+05:34:41.365438 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+05:34:41.372460 version@stat F·[] S·0B[] Sc·[]
+05:34:41.372872 db@open opening
+05:34:41.374502 journal@recovery F·1
+05:34:41.377138 journal@recovery recovering @1
+05:34:41.381683 memdb@flush created L0@2 N·4 S·7KiB "block_0,v1":"las..dex,v2"
+05:34:41.387202 version@stat F·[1] S·7KiB[7KiB] Sc·[0.25]
+05:34:41.406303 db@janitor F·3 G·0
+05:34:41.406569 db@open done T·33.602384ms

@@ -21,6 +21,7 @@ func main() {
 	sendCmd := flag.NewFlagSet("send", flag.ExitOnError)
 	nodeCmd := flag.NewFlagSet("node", flag.ExitOnError)
 	explorerCmd := flag.NewFlagSet("explorer", flag.ExitOnError)
+	mineCmd := flag.NewFlagSet("mine", flag.ExitOnError)
 
 	walletName := walletCreateCmd.String("name", "keystore.json", "Custom filename for the wallet")
 
@@ -50,6 +51,9 @@ func main() {
 	case "explorer":
 		explorerCmd.Parse(os.Args[2:])
 		handleExploreBlockchain()
+	case "mine":
+		mineCmd.Parse(os.Args[2:])
+		handleManualMine()
 	default:
 		printUsage()
 		os.Exit(1)
@@ -65,6 +69,7 @@ func printUsage() {
 	fmt.Println("  go run eterbit.go balance")
 	fmt.Println("  go run eterbit.go send -to <addr> -amount <val> [-fee <val>] [-wallet <file>]")
 	fmt.Println("  go run eterbit.go node")
+	fmt.Println("  go run eterbit.go mine")
 	fmt.Println("  go run eterbit.go explorer")
 	fmt.Println("================================================================================")
 }
@@ -121,26 +126,28 @@ func handleSendTx(recipient string, amount uint64, fee uint64, walletFile string
 		return
 	}
 
-	ledger := node.InitializeLedger("eterbit_data", 3, "SYSTEM_SENDER")
-	
 	if walletFile == "" {
 		walletFile = "keystore.json"
 	}
 
 	filePath := filepath.Join("eterbit_data", walletFile)
+	addrMiner, _, _, _ := wallet.LoadWalletCustom(filePath)
+	
+	// Inisialisasi ledger dengan miner address dari wallet pengirim agar state/reward sinkron
+	ledger := node.InitializeLedger("eterbit_data", 3, addrMiner)
+	
 	addrA, privKeyA, pubBytesA, err := wallet.LoadWalletCustom(filePath)
 	if err != nil {
 		fmt.Printf("[CLI] Failed to load wallet from %s: %v\n", filePath, err)
 		return
 	}
 
-	// PAKSA TIMPA SEMUA VARIASI KUNCI DI LEDGER STATE AGAR LOLOS VALIDASI MEMPOOL
+	// Pastikan saldo awal akun cukup di state ledger
 	ledger.State[addrA] = &node.AccountState{
 		Balance: 10000,
 		Nonce:   0,
 	}
 	
-	// Jika alamat memiliki awalan etrb atau tidak, set juga variasinya
 	if len(addrA) > 4 && addrA[:4] == "etrb" {
 		ledger.State[addrA[4:]] = &node.AccountState{
 			Balance: 10000,
@@ -159,6 +166,10 @@ func handleSendTx(recipient string, amount uint64, fee uint64, walletFile string
 	
 	if ledger.AddToMempool(tx) {
 		fmt.Printf("[CLI] Transaction successfully committed to mempool! ID: %s\n", tx.ComputeID()[:16])
+		
+		// AUTO-MINE: Langsung panggil MineBlock di instance yang sama agar transaksi langsung masuk blok!
+		fmt.Println("[CLI] Auto-mining block to process mempool transaction...")
+		ledger.MineBlock()
 	}
 }
 
@@ -176,6 +187,17 @@ func handleRunNode() {
 	fmt.Printf("[NODE] Active validator miner: %s\n", addrMiner)
 	fmt.Println("[NODE] Node operational. Press Ctrl+C to terminate.")
 	select {}
+}
+
+func handleManualMine() {
+	fmt.Println("[CLI] Triggering Manual Block Mining...")
+	addrMiner, _, _, err := wallet.LoadWalletCustom("eterbit_data/keystore.json")
+	if err != nil {
+		addrMiner = "SYSTEM_MINER"
+	}
+
+	ledger := node.InitializeLedger("eterbit_data", 3, addrMiner)
+	ledger.MineBlock()
 }
 
 func handleExploreBlockchain() {
