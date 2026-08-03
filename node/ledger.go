@@ -211,6 +211,27 @@ func (lc *LedgerCore) AddToMempool(tx *core.Transfer) bool {
 	return true
 }
 
+// GetMempoolFeeStats menghitung total, tertinggi, dan rata-rata fee dari transaksi yang ada di mempool
+func (lc *LedgerCore) GetMempoolFeeStats() (int, uint64, float64) {
+	lc.Mu.RLock()
+	defer lc.Mu.RUnlock()
+
+	count := len(lc.Mempool)
+	if count == 0 {
+		return 0, 0, 0
+	}
+
+	var totalFee uint64 = 0
+	highestFee := lc.Mempool[0].Fee
+
+	for _, tx := range lc.Mempool {
+		totalFee += tx.Fee
+	}
+
+	avgFee := float64(totalFee) / float64(count)
+	return count, highestFee, avgFee
+}
+
 // StartLiveWorker starts the background worker daemon to periodically mine blocks from pending mempool transactions or empty blocks.
 func (lc *LedgerCore) StartLiveWorker(interval time.Duration) {
 	ticker := time.NewTicker(interval)
