@@ -47,16 +47,16 @@ type LedgerCore struct {
 
 // CalculateBlockReward menghitung reward per blok dengan mekanisme halving
 func CalculateBlockReward(blockIndex uint64) uint64 {
-	// Tentukan reward awal per blok (misal: 50 koin, dikalikan CoinUnit)
+	// Tentukan reward awal per blok (50 koin, sudah dikalikan CoinUnit)
 	initialReward := uint64(50) * CoinUnit
 	
-	// Tentukan interval halving (Ganti ke 7850000 untuk mainnet, atau angka kecil misal 3 untuk uji coba)
-	halvingInterval := uint64(7850000) 
+	// Gunakan angka 3 untuk uji coba cepat halving, ubah ke 7850000 untuk mainnet
+	halvingInterval := uint64(3) 
 	
 	// Hitung sudah berapa kali halving terjadi
 	halvings := blockIndex / halvingInterval
 	
-	// Batasi maksimal halving (misal 64 kali, setelah itu reward 0)
+	// Batasi maksimal halving (maksimal 64 kali, setelah itu reward 0)
 	if halvings >= 64 {
 		return 0
 	}
@@ -64,8 +64,7 @@ func CalculateBlockReward(blockIndex uint64) uint64 {
 	// Geser bit ke kanan (sama dengan membagi 2 sebanyak 'halvings' kali)
 	reward := initialReward >> halvings
 	
-	// Debug opsional untuk memantau kalkulasi
-	fmt.Printf("[HALVING DEBUG] Block #%d | Era Halving: %d | Reward Mentah: %d\n", blockIndex, halvings, reward)
+	fmt.Printf("[HALVING DEBUG] Block #%d | Era Halving: %d | Reward Final: %d\n", blockIndex, halvings, reward)
 	
 	return reward
 }
@@ -116,10 +115,6 @@ func (lc *LedgerCore) LoadFromDisk() bool {
 		}
 		var block core.LedgerBlock
 		if err := json.Unmarshal(data, &block); err == nil {
-			// Normalisasi reward jika tersimpan dalam format lama yang belum dikali CoinUnit
-			if block.Reward > 0 && block.Reward < CoinUnit {
-				block.Reward = block.Reward * CoinUnit
-			}
 			lc.Chain = append(lc.Chain, &block)
 			lc.RebuildState(&block)
 		}
@@ -154,13 +149,7 @@ func (lc *LedgerCore) RebuildState(block *core.LedgerBlock) {
 			feeTotal += tx.Fee
 		}
 		
-		// Normalisasi reward blok jika belum berskala CoinUnit
-		blockReward := block.Reward
-		if blockReward > 0 && blockReward < CoinUnit {
-			blockReward = blockReward * CoinUnit
-		}
-
-		totalRewardAdded := blockReward + feeTotal
+		totalRewardAdded := block.Reward + feeTotal
 		if totalRewardAdded > 0 {
 			if _, ok := lc.State[block.Miner]; !ok {
 				lc.State[block.Miner] = &AccountState{Balance: 0, Nonce: 0}
@@ -183,10 +172,6 @@ func (lc *LedgerCore) SpawnGenesis() {
 		Reward:     CalculateBlockReward(0),
 	}
 	_, genesis.Hash = lc.Engine.Mine(genesis)
-	
-	if genesis.Reward < CoinUnit {
-		genesis.Reward = genesis.Reward * CoinUnit
-	}
 
 	lc.Chain = append(lc.Chain, genesis)
 	lc.Storage.SaveBlock(0, genesis)
@@ -296,11 +281,6 @@ func (lc *LedgerCore) MineBlock() {
 
 	newBlock.Nonce = nonce
 	newBlock.Hash = hash
-
-	// Normalisasi skala reward jika masih berbentuk angka mentah kecil
-	if newBlock.Reward > 0 && newBlock.Reward < CoinUnit {
-		newBlock.Reward = newBlock.Reward * CoinUnit
-	}
 
 	lc.Mu.Lock()
 	lc.Chain = append(lc.Chain, newBlock)
