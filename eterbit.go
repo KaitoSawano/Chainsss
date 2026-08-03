@@ -46,6 +46,8 @@ func main() {
 	mineCmd := flag.NewFlagSet("mine", flag.ExitOnError)
 	peersCmd := flag.NewFlagSet("peers", flag.ExitOnError)
 	feesCmd := flag.NewFlagSet("fees", flag.ExitOnError)
+	getBlockHashCmd := flag.NewFlagSet("getblockhash", flag.ExitOnError)
+	getBlockCmd := flag.NewFlagSet("getblock", flag.ExitOnError)
 
 	// Define specific parameter bindings for individual command flags.
 	walletName := walletCreateCmd.String("name", "keystore.json", "Custom filename for the wallet")
@@ -90,6 +92,20 @@ func main() {
 	case "fees":
 		feesCmd.Parse(os.Args[2:])
 		handleCheckFees()
+	case "getblockhash":
+		if len(os.Args) < 3 {
+			fmt.Println("Usage: go run eterbit.go getblockhash <block_index>")
+			os.Exit(1)
+		}
+		getBlockHashCmd.Parse(os.Args[2:])
+		handleGetBlockHash(os.Args[2])
+	case "getblock":
+		if len(os.Args) < 3 {
+			fmt.Println("Usage: go run eterbit.go getblock <block_hash>")
+			os.Exit(1)
+		}
+		getBlockCmd.Parse(os.Args[2:])
+		handleGetBlock(os.Args[2])
 	default:
 		printUsage()
 		os.Exit(1)
@@ -111,6 +127,8 @@ func printUsage() {
 	fmt.Println("  go run eterbit.go explorer")
 	fmt.Println("  go run eterbit.go peers")
 	fmt.Println("  go run eterbit.go fees")
+	fmt.Println("  go run eterbit.go getblockhash <index>")
+	fmt.Println("  go run eterbit.go getblock <hash>")
 	fmt.Println("================================================================================")
 }
 
@@ -371,7 +389,6 @@ func handleCheckFees() {
 
 	ledger := node.InitializeLedger("eterbit_data", 3, addrMiner)
 	
-	// Sinkronisasi mempool disk ke ledger jika ada
 	diskMempool := loadMempoolFromDisk()
 	if len(diskMempool) > 0 {
 		ledger.Mu.Lock()
@@ -388,4 +405,54 @@ func handleCheckFees() {
 	fmt.Printf(" Highest Priority Fee          : %.8f Coins\n", node.ToDecimal(highest))
 	fmt.Printf(" Average Fee                   : %.8f Coins\n", node.ToDecimal(uint64(avg)))
 	fmt.Println("================================================================================")
+}
+
+// handleGetBlockHash mengembalikan hash blok berdasarkan nomor indeks blok
+func handleGetBlockHash(indexStr string) {
+	var index uint64
+	_, err := fmt.Sscanf(indexStr, "%d", &index)
+	if err != nil {
+		fmt.Printf("[CLI] Invalid block index: %s\n", indexStr)
+		return
+	}
+
+	ledger := node.InitializeLedger("eterbit_data", 3, "SYSTEM_VIEWER")
+	if int(index) >= len(ledger.Chain) {
+		fmt.Printf("[CLI] Block index #%d out of range (Total blocks: %d)\n", index, len(ledger.Chain))
+		return
+	}
+
+	block := ledger.Chain[index]
+	hashHex := hex.EncodeToString(block.Hash)
+	fmt.Println(hashHex)
+}
+
+// handleGetBlock menampilkan detail JSON blok berdasarkan hash blok
+func handleGetBlock(targetHash string) {
+	ledger := node.InitializeLedger("eterbit_data", 3, "SYSTEM_VIEWER")
+	
+	var foundBlock *core.LedgerBlock = nil
+	for _, block := range ledger.Chain {
+		if hex.EncodeToString(block.Hash) == targetHash {
+			foundBlock = block
+			break
+		}
+	}
+
+	if foundBlock == nil {
+		fmt.Printf("[CLI] Block with hash '%s' not found!\n", targetHash)
+		return
+	}
+
+	jsonData, err := json.MarshalIndent(foundBlock, "", "  ")
+	if err != nil {
+		fmt.Printf("[CLI] Failed to format block JSON: %v\n", err)
+		return
+	}
+
+	fmt.Println("================================================================")
+	fmt.Println("                 ETERBIT BLOCK JSON DATA                        ")
+	fmt.Println("================================================================")
+	fmt.Println(string(jsonData))
+	fmt.Println("================================================================")
 }
