@@ -34,7 +34,7 @@ func DefaultConsensus() *ConsensusParameters {
 	return &ConsensusParameters{
 		DifficultyBits: 3,
 		BlockReward:    50,
-		MaxSupply:      785000000, // Menyesuaikan dengan parameter koin Termin/Eterbit
+		MaxSupply:      785000000, // Adjusting to Eterbit parameters
 	}
 }
 
