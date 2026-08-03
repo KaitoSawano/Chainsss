@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"eterbit/core"
+	"eterbit/internal/consensus"
 	"eterbit/storage"
 )
 
@@ -34,6 +35,12 @@ func InitializeLedger(dbPath string, initialDifficulty uint32, minerAddr string)
 	db, err := storage.NewDatabase(dbPath)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to open database: %v", err))
+	}
+
+	// Menggunakan parameter dari internal/consensus jika initialDifficulty bernilai 0
+	params := consensus.DefaultConsensus()
+	if initialDifficulty == 0 {
+		initialDifficulty = uint32(params.DifficultyBits)
 	}
 
 	coreLedger := &LedgerCore{
