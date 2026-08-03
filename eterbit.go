@@ -26,6 +26,7 @@ import (
 
 	"eterbit/core"
 	"eterbit/internal/p2p"
+	"eterbit/internal/status"
 	"eterbit/node"
 	"eterbit/storage/wallet"
 
@@ -48,6 +49,7 @@ func main() {
 	feesCmd := flag.NewFlagSet("fees", flag.ExitOnError)
 	getBlockHashCmd := flag.NewFlagSet("getblockhash", flag.ExitOnError)
 	getBlockCmd := flag.NewFlagSet("getblock", flag.ExitOnError)
+	uptimeCmd := flag.NewFlagSet("uptime", flag.ExitOnError)
 
 	// Define specific parameter bindings for individual command flags.
 	walletName := walletCreateCmd.String("name", "keystore.json", "Custom filename for the wallet")
@@ -92,6 +94,9 @@ func main() {
 	case "fees":
 		feesCmd.Parse(os.Args[2:])
 		handleCheckFees()
+	case "uptime":
+		uptimeCmd.Parse(os.Args[2:])
+		handleCheckUptime()
 	case "getblockhash":
 		if len(os.Args) < 3 {
 			fmt.Println("Usage: go run eterbit.go getblockhash <block_index>")
@@ -127,6 +132,7 @@ func printUsage() {
 	fmt.Println("  go run eterbit.go explorer")
 	fmt.Println("  go run eterbit.go peers")
 	fmt.Println("  go run eterbit.go fees")
+	fmt.Println("  go run eterbit.go uptime")
 	fmt.Println("  go run eterbit.go getblockhash <index>")
 	fmt.Println("  go run eterbit.go getblock <hash>")
 	fmt.Println("================================================================================")
@@ -254,6 +260,9 @@ func handleSendTx(recipient string, amount uint64, fee uint64, walletFile string
 // handleRunNode initiates a continuous background validation daemon process that periodically polls and processes pending transactions.
 func handleRunNode(port string, connectPeer string) {
 	fmt.Println("[SYS] Booting Eterbit Live Node (Bitcoin Core Style)...")
+	
+	// Catat waktu mulai node untuk fitur uptime ala daemon
+	status.RecordStartTime()
 	
 	addrMiner, _, _, err := wallet.LoadWalletCustom("eterbit_data/keystore.json")
 	if err != nil {
@@ -399,12 +408,23 @@ func handleCheckFees() {
 	count, highest, avg := ledger.GetMempoolFeeStats()
 
 	fmt.Println("================================================================================")
-	fmt.Println("                   ETERBIT MEMPOOL FEE MARKET                  ")
+	fmt.Println("                    ETERBIT MEMPOOL FEE MARKET                  ")
 	fmt.Println("================================================================================")
 	fmt.Printf(" Pending Transactions in Mempool : %d\n", count)
 	fmt.Printf(" Highest Priority Fee          : %.8f Coins\n", node.ToDecimal(highest))
 	fmt.Printf(" Average Fee                   : %.8f Coins\n", node.ToDecimal(uint64(avg)))
 	fmt.Println("================================================================================")
+}
+
+// handleCheckUptime menampilkan durasi keaktifan node menggunakan modul internal/status
+func handleCheckUptime() {
+	_, uptimeFormatted := status.GetUptime()
+
+	fmt.Println("================================================================")
+	fmt.Println("                  ETERBIT NODE UPTIME INFO                      ")
+	fmt.Println("================================================================")
+	fmt.Printf(" Uptime: %s\n", uptimeFormatted)
+	fmt.Println("================================================================")
 }
 
 // handleGetBlockHash mengembalikan hash blok berdasarkan nomor indeks blok
