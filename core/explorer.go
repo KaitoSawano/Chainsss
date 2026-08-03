@@ -8,17 +8,25 @@ import (
 	"eterbit/internal/consensus"
 )
 
+// CoinUnit mendefinisikan skala 8 desimal yang selaras dengan node
+const CoinUnit = uint64(100000000)
+
+// toDecimal helper lokal untuk mengubah satuan terkecil ke format float 8 desimal
+func toDecimal(amount uint64) float64 {
+	return float64(amount) / float64(CoinUnit)
+}
+
 // BlockRecord represents the structural schema of a stored block for exploration purposes.
 type BlockRecord struct {
-	Index      int64      `json:"index"`
-	Timestamp  int64      `json:"timestamp"`
-	PrevHash   string     `json:"prev_hash"`
-	Hash       string     `json:"hash"`
-	Validator  string     `json:"miner"` // Menyesuaikan dengan field miner di LedgerBlock
+	Index        int64      `json:"index"`
+	Timestamp    int64      `json:"timestamp"`
+	PrevHash     string     `json:"prev_hash"`
+	Hash         string     `json:"hash"`
+	Validator    string     `json:"miner"` // Menyesuaikan dengan field miner di LedgerBlock
 	Transactions []Transfer `json:"transfers"`
-	Difficulty uint32     `json:"difficulty"`
-	Nonce      uint64     `json:"nonce"`
-	Reward     uint64     `json:"reward"`
+	Difficulty   uint32     `json:"difficulty"`
+	Nonce        uint64     `json:"nonce"`
+	Reward       uint64     `json:"reward"`
 }
 
 // InspectBlockchain opens the LevelDB storage directly and inspects committed states and blocks.
@@ -58,21 +66,21 @@ func InspectBlockchain(dataDir string) {
 			}
 
 			fmt.Printf("📦 Block #[%d]\n", block.Index)
-			fmt.Printf("   Hash       : %s\n", block.Hash)
-			fmt.Printf("   Prev Hash  : %s\n", block.PrevHash)
-			fmt.Printf("   Validator  : %s\n", block.Validator)
-			fmt.Printf("   Difficulty : %d\n", block.Difficulty)
-			fmt.Printf("   Nonce      : %d\n", block.Nonce)
-			fmt.Printf("   Reward     : %d Coins\n", block.Reward)
-			fmt.Printf("   Tx Count   : %d transactions\n", len(block.Transactions))
+			fmt.Printf("    Hash         : %s\n", block.Hash)
+			fmt.Printf("    Prev Hash    : %s\n", block.PrevHash)
+			fmt.Printf("    Validator    : %s\n", block.Validator)
+			fmt.Printf("    Difficulty   : %d\n", block.Difficulty)
+			fmt.Printf("    Nonce        : %d\n", block.Nonce)
+			fmt.Printf("    Reward       : %.8f Coins\n", toDecimal(block.Reward))
+			fmt.Printf("    Tx Count     : %d transactions\n", len(block.Transactions))
 			fmt.Println("--------------------------------------------------------------------------------")
 			for idx, tx := range block.Transactions {
 				txID := tx.ComputeID()
 				if len(txID) > 8 {
 					txID = txID[:8]
 				}
-				fmt.Printf("   └─ Tx #%d ID : %s | To: %s... | Value: %d Coins\n", 
-					idx, txID, tx.Recipient[:16], tx.Value)
+				fmt.Printf("    └─ Tx #%d ID : %s | To: %s... | Value: %.8f Coins\n", 
+					idx, txID, tx.Recipient[:16], toDecimal(tx.Value))
 			}
 			fmt.Println("================================================================================")
 			count++
