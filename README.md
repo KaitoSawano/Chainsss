@@ -1,7 +1,7 @@
 Eterbit v0.01
 
 Copyright (c) 2026 Eterbit Core.
-Copyright (c) 2026 AldianOkto (Subang, Indonesia). All rights reserved.
+Copyright (c) 2026 AldianOkto (Subang, Indonesian). All rights reserved.
 Distributed under the Apache License, Version 2.0, see the accompanying
 file LICENSE or http://www.apache.org/licenses/LICENSE-2.0.
 This product includes post-quantum cryptographic software utilizing
@@ -13,7 +13,7 @@ Introduction
 Eterbit Core is an experimental cryptocurrency built in Go, inspired by the early days of decentralized peer-to-peer digital cash. It utilizes Dilithium signatures for advanced cryptography and a Proof-of-Work (PoW) consensus mechanism.
 
 
-Setup
+Set up
 -----
 Clone the repository and build the binary using Go:
 
