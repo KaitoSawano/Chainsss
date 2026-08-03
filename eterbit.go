@@ -24,9 +24,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"etrb/core"
-	"etrb/node"
-	"etrb/storage/wallet"
+	"eterbit/core"
+	"eterbit/node"
+	"eterbit/storage/wallet"
 
 	_ "github.com/cloudflare/circl/sign/dilithium/mode3"
 )
