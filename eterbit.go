@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"eterbit/core"
+	"eterbit/internal/consensus"
 	"eterbit/node"
 	"eterbit/storage/wallet"
 
