@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"eterbit/core"
+	"eterbit/internal/p2p"
 	"eterbit/node"
 	"eterbit/storage/wallet"
 
