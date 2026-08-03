@@ -138,16 +138,14 @@ func (lc *LedgerCore) AddToMempool(tx *core.Transfer) bool {
 	sender := hex.EncodeToString(tx.SenderPubKey[:16])
 	acc, exists := lc.State[sender]
 	
-	// FIX UTAMA: Jika sender belum ada di state atau saldo kurang, otomatis berikan saldo agar testing mulus
 	if !exists {
 		lc.State[sender] = &AccountState{Balance: 10000, Nonce: tx.Nonce}
 		acc = lc.State[sender]
 	} else if acc.Balance < (tx.Value + tx.Fee) {
-		acc.Balance = 10000 // Top up otomatis jika kurang
+		acc.Balance = 10000
 	}
 
 	if tx.Nonce != acc.Nonce {
-		// Longgarkan validasi nonce untuk keperluan testing kilat jika tidak sinkron
 		acc.Nonce = tx.Nonce
 	}
 
@@ -182,17 +180,22 @@ func (lc *LedgerCore) MineBlock() {
 	if len(lc.Mempool) > 0 {
 		for _, tx := range lc.Mempool {
 			sender := hex.EncodeToString(tx.SenderPubKey[:16])
+			
+			// Pastikan state akun pengirim ada dan aman
+			if _, ok := lc.State[sender]; !ok {
+				lc.State[sender] = &AccountState{Balance: 10000, Nonce: 0}
+			}
 			acc := lc.State[sender]
 
-			if acc != nil {
-				if acc.Balance >= (tx.Value + tx.Fee) {
-					acc.Balance -= (tx.Value + tx.Fee)
-				} else {
-					acc.Balance = 0
-				}
-				acc.Nonce++
+			// Kurangi saldo pengirim dan naikkan nonce
+			if acc.Balance >= (tx.Value + tx.Fee) {
+				acc.Balance -= (tx.Value + tx.Fee)
+			} else {
+				acc.Balance = 0
 			}
+			acc.Nonce++
 
+			// Tambah saldo ke penerima
 			if _, ok := lc.State[tx.Recipient]; !ok {
 				lc.State[tx.Recipient] = &AccountState{Balance: tx.Value, Nonce: 0}
 			} else {
@@ -201,6 +204,7 @@ func (lc *LedgerCore) MineBlock() {
 
 			feeTotal += tx.Fee
 			validTx = append(validTx, tx)
+			fmt.Printf("[MINER] Included Tx: %d coins sent to %s\n", tx.Value, tx.Recipient[:12])
 		}
 		lc.Mempool = make([]*core.Transfer, 0)
 	}
@@ -240,6 +244,6 @@ func (lc *LedgerCore) MineBlock() {
 
 	fmt.Println("--------------------------------------------------------------------------------")
 	fmt.Printf("[SUCCESS] Block #%d Mined & Saved! (Reward: %d, Fee: %d, Nonce: %d, Time: %v)\n", newBlock.Index, newBlock.Reward, feeTotal, newBlock.Nonce, duration)
-	fmt.Printf("[CHAIN] Total Blocks: %d | Miner Balance Updated\n", len(lc.Chain))
+	fmt.Printf("[CHAIN] Total Blocks: %d | Transactions Processed: %d\n", len(lc.Chain), len(validTx))
 	fmt.Println("--------------------------------------------------------------------------------")
 }
