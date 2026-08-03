@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"eterbit/core"
+	"eterbit/internal/consensus"
 	"eterbit/storage"
 )
 
