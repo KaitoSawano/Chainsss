@@ -19,8 +19,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/syndtr/goleveldb/leveldb"
 	"eterbit/internal/consensus"
+	"github.com/syndtr/goleveldb/leveldb"
 )
 
 // BlockRecord represents the structural schema of a stored block for exploration purposes.
@@ -29,7 +29,7 @@ type BlockRecord struct {
 	Timestamp    int64      `json:"timestamp"`
 	PrevHash     string     `json:"prev_hash"`
 	Hash         string     `json:"hash"`
-	Validator    string     `json:"miner"` // Menyesuaikan dengan field miner di LedgerBlock
+	Validator    string     `json:"miner"` // Matches the miner field in LedgerBlock
 	Transactions []Transfer `json:"transfers"`
 	Difficulty   uint32     `json:"difficulty"`
 	Nonce        uint64     `json:"nonce"`
@@ -42,7 +42,7 @@ func InspectBlockchain(dataDir string) {
 	fmt.Println(" ETERBIT BLOCKCHAIN EXPLORER (LEVELDB)")
 	fmt.Println("================================================================================")
 
-	// Open the LevelDB database instance from the data directory
+	// Open the LevelDB database instance from the specified data directory path.
 	db, err := leveldb.OpenFile(dataDir, nil)
 	if err != nil {
 		fmt.Printf("[EXPLORER] Failed to open LevelDB database: %v\n", err)
@@ -52,27 +52,28 @@ func InspectBlockchain(dataDir string) {
 	}
 	defer db.Close()
 
-	// Iterate through database entries to extract and decode stored block records
+	// Initialize a new database iterator to scan through stored records.
 	iter := db.NewIterator(nil, nil)
 	defer iter.Release()
 
-	// Referensi parameter konsensus jika dibutuhkan untuk validasi tambahan
+	// Reference consensus parameters if required for additional validation checks.
 	_ = consensus.DefaultConsensus()
 
 	count := 0
+	// Iterate through all database entries to extract and decode stored block records.
 	for iter.Next() {
 		key := string(iter.Key())
 		
-		// Filter keys starting with "block_" to parse and display structured block details
+		// Filter keys starting with "block_" to parse and display structured block details.
 		if len(key) >= 6 && key[:6] == "block_" {
 			var block BlockRecord
 			if err := json.Unmarshal(iter.Value(), &block); err != nil {
-				// If it's raw bytes or another format, fallback to printing key size
+				// Fallback to displaying raw key info if unmarshaling fails.
 				fmt.Printf("📦 Key: %s | Data Size: %d bytes\n", key, len(iter.Value()))
 				continue
 			}
 
-			// Menggunakan fungsi toDecimal atau pembagian langsung dengan CoinUnit yang ada di package core
+			// Convert raw reward units into a standard decimal coin representation.
 			rewardDecimal := float64(block.Reward) / float64(CoinUnit)
 
 			fmt.Printf("📦 Block #[%d]\n", block.Index)
@@ -84,14 +85,20 @@ func InspectBlockchain(dataDir string) {
 			fmt.Printf("    Reward       : %.8f Coins\n", rewardDecimal)
 			fmt.Printf("    Tx Count     : %d transactions\n", len(block.Transactions))
 			fmt.Println("--------------------------------------------------------------------------------")
+			
+			// Iterate through and display details for each transaction included in the block.
 			for idx, tx := range block.Transactions {
 				txID := tx.ComputeID()
 				if len(txID) > 8 {
 					txID = txID[:8]
 				}
 				valDecimal := float64(tx.Value) / float64(CoinUnit)
+				recipientDisplay := tx.Recipient
+				if len(recipientDisplay) > 16 {
+					recipientDisplay = recipientDisplay[:16]
+				}
 				fmt.Printf("    └─ Tx #%d ID : %s | To: %s... | Value: %.8f Coins\n", 
-					idx, txID, tx.Recipient[:16], valDecimal)
+					idx, txID, recipientDisplay, valDecimal)
 			}
 			fmt.Println("================================================================================")
 			count++
