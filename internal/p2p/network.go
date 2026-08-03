@@ -47,6 +47,7 @@ type Server struct {
 
 // NewServer initializes a new P2P network server instance.
 func NewServer(address string) *Server {
+	// Instantiate and return a new Server pointer with an initialized peer connection mapping.
 	return &Server{
 		Address: address,
 		Peers:   make(map[string]net.Conn),
@@ -55,6 +56,7 @@ func NewServer(address string) *Server {
 
 // StartListening binds to the specified TCP address and listens for incoming node connections.
 func (s *Server) StartListening(onBlockReceived func(*core.LedgerBlock), onTxReceived func(*core.Transfer)) error {
+	// Bind a TCP network listener to the configured server address endpoint.
 	listener, err := net.Listen("tcp", s.Address)
 	if err != nil {
 		return err
@@ -63,11 +65,13 @@ func (s *Server) StartListening(onBlockReceived func(*core.LedgerBlock), onTxRec
 
 	fmt.Printf("[P2P] Node networking server listening on %s...\n", s.Address)
 
+	// Continuously accept incoming TCP connection requests from remote peer nodes.
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
 			continue
 		}
+		// Spawn a dedicated background goroutine to handle communication for each accepted connection.
 		go s.handleConnection(conn, onBlockReceived, onTxReceived)
 	}
 }
@@ -76,12 +80,14 @@ func (s *Server) StartListening(onBlockReceived func(*core.LedgerBlock), onTxRec
 func (s *Server) handleConnection(conn net.Conn, onBlock func(*core.LedgerBlock), onTx func(*core.Transfer)) {
 	defer conn.Close()
 	decoder := json.NewDecoder(conn)
+	// Continuously decode incoming message envelopes from the active network stream.
 	for {
 		var env Envelope
 		if err := decoder.Decode(&env); err != nil {
 			break
 		}
 
+		// Route incoming messages based on their designated envelope type classification.
 		switch env.Type {
 		case MsgTx:
 			var tx core.Transfer
@@ -102,11 +108,13 @@ func (s *Server) Broadcast(msgType MessageType, data interface{}) {
 	s.Mu.Lock()
 	defer s.Mu.Unlock()
 
+	// Serialize the target data payload into a raw JSON byte slice.
 	payload, err := json.Marshal(data)
 	if err != nil {
 		return
 	}
 
+	// Wrap the payload into a network message envelope container structure.
 	envBytes, err := json.Marshal(Envelope{
 		Type:    msgType,
 		Payload: payload,
@@ -115,6 +123,7 @@ func (s *Server) Broadcast(msgType MessageType, data interface{}) {
 		return
 	}
 
+	// Iterate through all active peer connections and transmit the serialized envelope data stream.
 	for addr, conn := range s.Peers {
 		_, err := conn.Write(append(envBytes, '\n'))
 		if err != nil {
@@ -126,12 +135,14 @@ func (s *Server) Broadcast(msgType MessageType, data interface{}) {
 
 // ConnectToPeer establishes an outbound TCP connection to another active network peer.
 func (s *Server) ConnectToPeer(peerAddr string) error {
+	// Dial an outbound TCP network connection to the specified remote peer address.
 	conn, err := net.Dial("tcp", peerAddr)
 	if err != nil {
 		return err
 	}
 
 	s.Mu.Lock()
+	// Store the established connection inside the active peer tracking map.
 	s.Peers[peerAddr] = conn
 	s.Mu.Unlock()
 
@@ -139,18 +150,20 @@ func (s *Server) ConnectToPeer(peerAddr string) error {
 	return nil
 }
 
-// GetPeerCount mengembalikan total jumlah node peer yang sedang terhubung
+// GetPeerCount returns the total count of currently connected peer nodes.
 func (s *Server) GetPeerCount() int {
 	s.Mu.Lock()
 	defer s.Mu.Unlock()
+	// Return the total number of items present in the active peer connections map.
 	return len(s.Peers)
 }
 
-// GetPeerList mengembalikan daftar alamat IP/port peer yang aktif
+// GetPeerList returns a list of active peer IP/port addresses.
 func (s *Server) GetPeerList() []string {
 	s.Mu.Lock()
 	defer s.Mu.Unlock()
 	
+	// Collect and return all active peer address keys from the connection tracking map.
 	peers := make([]string, 0, len(s.Peers))
 	for addr := range s.Peers {
 		peers = append(peers, addr)
