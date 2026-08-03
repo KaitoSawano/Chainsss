@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"eterbit/crypto"
-	"eterbit/internal/consensus"
 	"github.com/cloudflare/circl/sign/dilithium/mode3"
 )
 
