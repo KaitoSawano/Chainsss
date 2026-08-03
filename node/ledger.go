@@ -53,7 +53,7 @@ func formatCoin(amount uint64) float64 {
 // CalculateBlockReward menghitung reward per blok dengan mekanisme halving
 func CalculateBlockReward(blockIndex uint64) uint64 {
 	initialReward := uint64(50) * CoinUnit
-	halvingInterval := uint64(3) 
+	halvingInterval := uint64(7850000) 
 	
 	halvings := blockIndex / halvingInterval
 	
@@ -61,11 +61,7 @@ func CalculateBlockReward(blockIndex uint64) uint64 {
 		return 0
 	}
 	
-	reward := initialReward >> halvings
-	
-	fmt.Printf("[HALVING DEBUG] Block #%d | Era Halving: %d | Reward Final: %d (%.8f Coins)\n", blockIndex, halvings, reward, formatCoin(reward))
-	
-	return reward
+	return initialReward >> halvings
 }
 
 // InitializeLedger initializes or loads the local ledger database state from the specified storage path.
