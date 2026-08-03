@@ -10,12 +10,15 @@ import (
 
 // BlockRecord represents the structural schema of a stored block for exploration purposes.
 type BlockRecord struct {
-	Index        int64      `json:"index"`
-	Timestamp    int64      `json:"timestamp"`
-	PrevHash     string     `json:"prev_hash"`
-	Hash         string     `json:"hash"`
-	Validator    string     `json:"validator"`
-	Transactions []Transfer `json:"transactions"`
+	Index      int64      `json:"index"`
+	Timestamp  int64      `json:"timestamp"`
+	PrevHash   string     `json:"prev_hash"`
+	Hash       string     `json:"hash"`
+	Validator  string     `json:"miner"` // Menyesuaikan dengan field miner di LedgerBlock
+	Transactions []Transfer `json:"transfers"`
+	Difficulty uint32     `json:"difficulty"`
+	Nonce      uint64     `json:"nonce"`
+	Reward     uint64     `json:"reward"`
 }
 
 // InspectBlockchain opens the LevelDB storage directly and inspects committed states and blocks.
@@ -38,6 +41,9 @@ func InspectBlockchain(dataDir string) {
 	iter := db.NewIterator(nil, nil)
 	defer iter.Release()
 
+	// Referensi parameter konsensus jika dibutuhkan untuk validasi tambahan
+	_ = consensus.DefaultConsensus()
+
 	count := 0
 	for iter.Next() {
 		key := string(iter.Key())
@@ -52,10 +58,13 @@ func InspectBlockchain(dataDir string) {
 			}
 
 			fmt.Printf("📦 Block #[%d]\n", block.Index)
-			fmt.Printf("   Hash      : %s\n", block.Hash)
-			fmt.Printf("   Prev Hash : %s\n", block.PrevHash)
-			fmt.Printf("   Validator : %s\n", block.Validator)
-			fmt.Printf("   Tx Count  : %d transactions\n", len(block.Transactions))
+			fmt.Printf("   Hash       : %s\n", block.Hash)
+			fmt.Printf("   Prev Hash  : %s\n", block.PrevHash)
+			fmt.Printf("   Validator  : %s\n", block.Validator)
+			fmt.Printf("   Difficulty : %d\n", block.Difficulty)
+			fmt.Printf("   Nonce      : %d\n", block.Nonce)
+			fmt.Printf("   Reward     : %d Coins\n", block.Reward)
+			fmt.Printf("   Tx Count   : %d transactions\n", len(block.Transactions))
 			fmt.Println("--------------------------------------------------------------------------------")
 			for idx, tx := range block.Transactions {
 				txID := tx.ComputeID()
