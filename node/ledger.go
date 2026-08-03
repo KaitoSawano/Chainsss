@@ -76,6 +76,10 @@ func (lc *LedgerCore) LoadFromDisk() bool {
 		}
 		var block core.LedgerBlock
 		if err := json.Unmarshal(data, &block); err == nil {
+			// Normalisasi reward jika tersimpan dalam format lama yang belum dikali CoinUnit
+			if block.Reward > 0 && block.Reward < CoinUnit {
+				block.Reward = block.Reward * CoinUnit
+			}
 			lc.Chain = append(lc.Chain, &block)
 			lc.RebuildState(&block)
 		}
@@ -110,7 +114,13 @@ func (lc *LedgerCore) RebuildState(block *core.LedgerBlock) {
 			feeTotal += tx.Fee
 		}
 		
-		totalRewardAdded := block.Reward + feeTotal
+		// Normalisasi reward blok jika belum berskala CoinUnit
+		blockReward := block.Reward
+		if blockReward > 0 && blockReward < CoinUnit {
+			blockReward = blockReward * CoinUnit
+		}
+
+		totalRewardAdded := blockReward + feeTotal
 		if totalRewardAdded > 0 {
 			if _, ok := lc.State[block.Miner]; !ok {
 				lc.State[block.Miner] = &AccountState{Balance: 0, Nonce: 0}
@@ -132,6 +142,12 @@ func (lc *LedgerCore) SpawnGenesis() {
 		Difficulty: lc.Engine.TargetDifficulty,
 	}
 	_, genesis.Hash = lc.Engine.Mine(genesis)
+	
+	// Pastikan reward genesis dikalikan CoinUnit
+	if genesis.Reward < CoinUnit {
+		genesis.Reward = genesis.Reward * CoinUnit
+	}
+
 	lc.Chain = append(lc.Chain, genesis)
 	lc.Storage.SaveBlock(0, genesis)
 }
@@ -237,6 +253,11 @@ func (lc *LedgerCore) MineBlock() {
 
 	newBlock.Nonce = nonce
 	newBlock.Hash = hash
+
+	// Normalisasi skala reward jika masih berbentuk angka mentah kecil
+	if newBlock.Reward > 0 && newBlock.Reward < CoinUnit {
+		newBlock.Reward = newBlock.Reward * CoinUnit
+	}
 
 	lc.Mu.Lock()
 	lc.Chain = append(lc.Chain, newBlock)
