@@ -11,7 +11,7 @@ import (
 
 // Mengambil batas maksimum total koin dari parameter konsensus terpusat
 var consensusParams = consensus.DefaultConsensus()
-const MaxEterbitSupply uint64 = 285000000 // Menyesuaikan dengan MaxSupply di internal/consensus
+const MaxEterbitSupply uint64 = 785000000 // Menyesuaikan dengan MaxSupply di internal/consensus
 
 // LedgerBlock represents the core structural block entity containing transactional ledger data, cryptographic hashes, and consensus metadata.
 type LedgerBlock struct {
