@@ -22,18 +22,19 @@ import (
 	"time"
 )
 
-// UptimeRecord menyimpan data waktu saat node pertama kali dinyalakan
+// UptimeRecord stores the timestamp data representing when the node instance was initially booted.
 type UptimeRecord struct {
 	StartTime int64 `json:"start_time"`
 }
 
 var UptimeFile = "eterbit_data/uptime.json"
 
-// RecordStartTime dipanggil saat node booting untuk mencatat waktu mulai
+// RecordStartTime is invoked during node boot initialization to record the startup timestamp.
 func RecordStartTime() {
+	// Ensure that the target directory structure exists prior to file persistence operations.
 	os.MkdirAll("eterbit_data", 0755)
 	
-	// Jika file uptime sudah ada (artinya node mungkin sudah jalan), jangan Timpa kecuali node baru restart
+	// If the uptime file already exists (meaning the node may already be running), do not overwrite unless newly restarted.
 	if _, err := os.Stat(UptimeFile); os.IsNotExist(err) {
 		record := UptimeRecord{
 			StartTime: time.Now().Unix(),
@@ -43,11 +44,12 @@ func RecordStartTime() {
 	}
 }
 
-// GetUptime menghitung berapa lama node telah aktif (dalam detik, menit, jam, hari) mirip dogecoin-cli uptime
+// GetUptime computes how long the node has been active (in seconds, minutes, hours, days) similar to dogecoin-cli uptime.
 func GetUptime() (int64, string) {
+	// Read the serialized uptime record from disk storage.
 	data, err := os.ReadFile(UptimeFile)
 	if err != nil {
-		// Jika file belum ada (node belum pernah jalan/booting lewat daemon), catat waktu sekarang
+		// If the file does not exist (node has never run/booted via daemon), record the current time.
 		StartTime := time.Now().Unix()
 		record := UptimeRecord{StartTime: StartTime}
 		newData, _ := json.MarshalIndent(record, "", "  ")
@@ -57,6 +59,7 @@ func GetUptime() (int64, string) {
 	}
 
 	var record UptimeRecord
+	// Unmarshal the retrieved uptime record JSON data into memory.
 	json.Unmarshal(data, &record)
 
 	now := time.Now().Unix()
@@ -65,7 +68,7 @@ func GetUptime() (int64, string) {
 		diff = 0
 	}
 
-	// Konversi detik ke format human-readable (Hari, Jam, Menit, Detik)
+	// Convert total seconds into a human-readable format (Days, Hours, Minutes, Seconds).
 	days := diff / 86400
 	hours := (diff % 86400) / 3600
 	minutes := (diff % 3600) / 60
@@ -82,5 +85,6 @@ func GetUptime() (int64, string) {
 		result = fmt.Sprintf("%d seconds", seconds)
 	}
 
+	// Return both the raw duration in seconds and the formatted human-readable uptime string.
 	return diff, result
 }
