@@ -8,14 +8,6 @@ import (
 	"eterbit/internal/consensus"
 )
 
-// CoinUnit mendefinisikan skala 8 desimal yang selaras dengan node
-const CoinUnit = uint64(100000000)
-
-// toDecimal helper lokal untuk mengubah satuan terkecil ke format float 8 desimal
-func toDecimal(amount uint64) float64 {
-	return float64(amount) / float64(CoinUnit)
-}
-
 // BlockRecord represents the structural schema of a stored block for exploration purposes.
 type BlockRecord struct {
 	Index        int64      `json:"index"`
@@ -65,13 +57,16 @@ func InspectBlockchain(dataDir string) {
 				continue
 			}
 
+			// Menggunakan fungsi toDecimal atau pembagian langsung dengan CoinUnit yang ada di package core
+			rewardDecimal := float64(block.Reward) / float64(CoinUnit)
+
 			fmt.Printf("📦 Block #[%d]\n", block.Index)
 			fmt.Printf("    Hash         : %s\n", block.Hash)
 			fmt.Printf("    Prev Hash    : %s\n", block.PrevHash)
 			fmt.Printf("    Validator    : %s\n", block.Validator)
 			fmt.Printf("    Difficulty   : %d\n", block.Difficulty)
 			fmt.Printf("    Nonce        : %d\n", block.Nonce)
-			fmt.Printf("    Reward       : %.8f Coins\n", toDecimal(block.Reward))
+			fmt.Printf("    Reward       : %.8f Coins\n", rewardDecimal)
 			fmt.Printf("    Tx Count     : %d transactions\n", len(block.Transactions))
 			fmt.Println("--------------------------------------------------------------------------------")
 			for idx, tx := range block.Transactions {
@@ -79,8 +74,9 @@ func InspectBlockchain(dataDir string) {
 				if len(txID) > 8 {
 					txID = txID[:8]
 				}
+				valDecimal := float64(tx.Value) / float64(CoinUnit)
 				fmt.Printf("    └─ Tx #%d ID : %s | To: %s... | Value: %.8f Coins\n", 
-					idx, txID, tx.Recipient[:16], toDecimal(tx.Value))
+					idx, txID, tx.Recipient[:16], valDecimal)
 			}
 			fmt.Println("================================================================================")
 			count++
