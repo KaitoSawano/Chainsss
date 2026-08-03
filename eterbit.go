@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -14,6 +15,8 @@ import (
 
 	_ "github.com/cloudflare/circl/sign/dilithium/mode3"
 )
+
+const MempoolFile = "eterbit_data/mempool.json"
 
 func main() {
 	walletCreateCmd := flag.NewFlagSet("create", flag.ExitOnError)
@@ -62,7 +65,7 @@ func main() {
 
 func printUsage() {
 	fmt.Println("================================================================================")
-	fmt.Println(" ETERBIT BLOCKCHAIN CLI MANAGER (MULTI-WALLET)")
+	fmt.Println(" ETERBIT BLOCKCHAIN CLI MANAGER (BITCOIN-LIKE ARCHITECTURE)")
 	fmt.Println("================================================================================")
 	fmt.Println("Available commands:")
 	fmt.Println("  go run eterbit.go create -name <file.json>")
@@ -120,6 +123,22 @@ func handleCheckBalance() {
 	fmt.Println("================================================================================")
 }
 
+func saveMempoolToDisk(mempool []*core.Transfer) {
+	os.MkdirAll("eterbit_data", 0755)
+	data, _ := json.MarshalIndent(mempool, "", "  ")
+	os.WriteFile(MempoolFile, data, 0644)
+}
+
+func loadMempoolFromDisk() []*core.Transfer {
+	var mempool []*core.Transfer
+	data, err := os.ReadFile(MempoolFile)
+	if err != nil {
+		return mempool
+	}
+	json.Unmarshal(data, &mempool)
+	return mempool
+}
+
 func handleSendTx(recipient string, amount uint64, fee uint64, walletFile string) {
 	if recipient == "" || amount == 0 {
 		fmt.Println("[CLI] Incomplete arguments! Use -to and -amount.")
@@ -133,7 +152,6 @@ func handleSendTx(recipient string, amount uint64, fee uint64, walletFile string
 	filePath := filepath.Join("eterbit_data", walletFile)
 	addrMiner, _, _, _ := wallet.LoadWalletCustom(filePath)
 	
-	// Inisialisasi ledger dengan miner address dari wallet pengirim agar state/reward sinkron
 	ledger := node.InitializeLedger("eterbit_data", 3, addrMiner)
 	
 	addrA, privKeyA, pubBytesA, err := wallet.LoadWalletCustom(filePath)
@@ -142,7 +160,6 @@ func handleSendTx(recipient string, amount uint64, fee uint64, walletFile string
 		return
 	}
 
-	// Pastikan saldo awal akun cukup di state ledger
 	ledger.State[addrA] = &node.AccountState{
 		Balance: 10000,
 		Nonce:   0,
@@ -160,21 +177,24 @@ func handleSendTx(recipient string, amount uint64, fee uint64, walletFile string
 		}
 	}
 
+	// Gunakan unique nonce/timestamp agar transaksi berulang tidak menghasilkan ID kembar
+	currentNonce := ledger.State[addrA].Nonce + uint64(time.Now().UnixNano()%100000)
+
 	fmt.Printf("[CLI] Constructing transaction from %s (via %s) to %s (Amount: %d, Fee: %d)...\n", addrA, walletFile, recipient, amount, fee)
 
-	tx := core.NewTransfer(privKeyA, pubBytesA, recipient, amount, fee, 0)
+	tx := core.NewTransfer(privKeyA, pubBytesA, recipient, amount, fee, currentNonce)
 	
-	if ledger.AddToMempool(tx) {
-		fmt.Printf("[CLI] Transaction successfully committed to mempool! ID: %s\n", tx.ComputeID()[:16])
-		
-		// AUTO-MINE: Langsung panggil MineBlock di instance yang sama agar transaksi langsung masuk blok!
-		fmt.Println("[CLI] Auto-mining block to process mempool transaction...")
-		ledger.MineBlock()
-	}
+	// Masukkan ke disk mempool
+	existingMempool := loadMempoolFromDisk()
+	existingMempool = append(existingMempool, tx)
+	saveMempoolToDisk(existingMempool)
+
+	fmt.Printf("[MEMPOOL] Transaction broadcasted to network pool! ID: %s...\n", tx.ComputeID()[:16])
+	fmt.Println("[CLI] Transaction waiting for node validator to mine into a block.")
 }
 
 func handleRunNode() {
-	fmt.Println("[SYS] Booting Eterbit Live Node...")
+	fmt.Println("[SYS] Booting Eterbit Live Node (Bitcoin Core Style)...")
 	addrMiner, _, _, err := wallet.LoadWalletCustom("eterbit_data/keystore.json")
 	if err != nil {
 		fmt.Printf("[NODE] Failed to load default miner wallet: %v\n", err)
@@ -182,10 +202,28 @@ func handleRunNode() {
 	}
 
 	ledger := node.InitializeLedger("eterbit_data", 3, addrMiner)
-	ledger.StartLiveWorker(4 * time.Second)
+	
+	// Background worker rutin memeriksa disk mempool setiap 3 detik
+	go func() {
+		for {
+			time.Sleep(3 * time.Second)
+			diskMempool := loadMempoolFromDisk()
+			if len(diskMempool) > 0 {
+				ledger.Mu.Lock()
+				ledger.Mempool = diskMempool
+				ledger.Mu.Unlock()
+
+				fmt.Println("[NODE] Pending transactions detected in mempool. Starting Proof-of-Work...")
+				ledger.MineBlock()
+
+				// Kosongkan mempool setelah berhasil ditambang ke blok
+				saveMempoolToDisk([]*core.Transfer{})
+			}
+		}
+	}()
 
 	fmt.Printf("[NODE] Active validator miner: %s\n", addrMiner)
-	fmt.Println("[NODE] Node operational. Press Ctrl+C to terminate.")
+	fmt.Println("[NODE] Node operational and listening. Press Ctrl+C to terminate.")
 	select {}
 }
 
@@ -197,7 +235,17 @@ func handleManualMine() {
 	}
 
 	ledger := node.InitializeLedger("eterbit_data", 3, addrMiner)
+	
+	// Taruh transaksi dari disk mempool ke ledger sebelum ditambang
+	diskMempool := loadMempoolFromDisk()
+	if len(diskMempool) > 0 {
+		ledger.Mu.Lock()
+		ledger.Mempool = diskMempool
+		ledger.Mu.Unlock()
+	}
+
 	ledger.MineBlock()
+	saveMempoolToDisk([]*core.Transfer{})
 }
 
 func handleExploreBlockchain() {
