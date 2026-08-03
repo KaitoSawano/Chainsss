@@ -20,42 +20,45 @@ import (
 	"encoding/hex"
 	"strconv"
 
-	"golang.org/x/crypto/sha3"
 	"eterbit/internal/consensus"
+	"golang.org/x/crypto/sha3"
 )
 
-// CoinUnit mendefinisikan skala 8 desimal yang konsisten dengan node
+// CoinUnit defines an 8-decimal scaling factor consistent across all node operations.
 const CoinUnit = uint64(100000000)
 
-// Mengambil batas maksimum total koin dari parameter konsensus terpusat
+// Retrieve the maximum total coin supply limit from centralized consensus parameters.
 var consensusParams = consensus.DefaultConsensus()
-const MaxEterbitSupply uint64 = 785000000 // Menyesuaikan dengan MaxSupply di internal/consensus
+
+const MaxEterbitSupply uint64 = 785000000 // Aligns with MaxSupply specified in internal/consensus
 
 // LedgerBlock represents the core structural block entity containing transactional ledger data, cryptographic hashes, and consensus metadata.
 type LedgerBlock struct {
-	Index      uint64      `json:"index"`
-	Timestamp  int64       `json:"timestamp"`
-	PrevHash   []byte      `json:"prev_hash"`
-	Hash       []byte      `json:"hash"`
+	Index      uint64     `json:"index"`
+	Timestamp  int64      `json:"timestamp"`
+	PrevHash   []byte     `json:"prev_hash"`
+	Hash       []byte     `json:"hash"`
 	Transfers  []*Transfer `json:"transfers"`
-	Miner      string      `json:"miner"`
-	Nonce      uint64      `json:"nonce"`
-	Difficulty uint32      `json:"difficulty"`
-	Reward     uint64      `json:"reward"`
+	Miner      string     `json:"miner"`
+	Nonce      uint64     `json:"nonce"`
+	Difficulty uint32     `json:"difficulty"`
+	Reward     uint64     `json:"reward"`
 }
 
-// GetBlockReward menghitung reward per blok secara dinamis dan dikalikan CoinUnit agar akurat 8 desimal
+// GetBlockReward dynamically computes the block reward per block and multiplies it by CoinUnit to maintain 8-decimal accuracy.
 func GetBlockReward(blockHeight uint64) uint64 {
-	// Mengalikan BlockReward dengan CoinUnit agar menjadi satuan terkecil (misal: 50 * 100,000,000)
+	// Multiply the base block reward by CoinUnit to convert it into the smallest fractional integer units (e.g., 50 * 100,000,000).
 	initialReward := consensusParams.BlockReward * CoinUnit
-	halvingInterval := uint64(50) // Interval halving
+	halvingInterval := uint64(50) // Halving interval configuration
 
 	halvings := blockHeight / halvingInterval
 
+	// Prevent integer overflow or underflow by capping the maximum halving bitwise shifts at 64.
 	if halvings >= 64 {
 		return 0
 	}
 
+	// Apply bitwise right-shift operations to reduce the initial reward by half for each elapsed interval.
 	return initialReward >> halvings
 }
 
@@ -66,15 +69,18 @@ type ConsensusEngine struct {
 
 // NewConsensusEngine initializes and returns a new ConsensusEngine instance configured with the specified difficulty target.
 func NewConsensusEngine(difficulty uint32) *ConsensusEngine {
+	// Instantiate and return a ConsensusEngine pointer with the targeted difficulty level.
 	return &ConsensusEngine{TargetDifficulty: difficulty}
 }
 
 // AssembleBlockData serializes and concatenates block headers, transactional payloads, and a candidate nonce into a unified byte array for hashing.
 func (ce *ConsensusEngine) AssembleBlockData(b *LedgerBlock, nonce uint64) []byte {
 	var rawTxData []byte
+	// Concatenate all transfer signatures included in the block payload.
 	for _, tx := range b.Transfers {
 		rawTxData = append(rawTxData, tx.Signature...)
 	}
+	// Join all block components into a single canonical byte array representation.
 	return bytes.Join([][]byte{
 		b.PrevHash,
 		rawTxData,
@@ -86,11 +92,13 @@ func (ce *ConsensusEngine) AssembleBlockData(b *LedgerBlock, nonce uint64) []byt
 
 // Mine executes an iterative proof-of-work search loop, testing candidate nonces until a hash meeting the target difficulty is discovered.
 func (ce *ConsensusEngine) Mine(b *LedgerBlock) (uint64, []byte) {
+	// Compute and assign the accurate block reward based on the current block height index.
 	b.Reward = GetBlockReward(b.Index)
 
 	var nonce uint64 = 0
 	hasher := sha3.New256()
 
+	// Iteratively test nonces until a resulting hash satisfies the proof-of-work difficulty requirement.
 	for {
 		data := ce.AssembleBlockData(b, nonce)
 		hasher.Reset()
@@ -104,9 +112,9 @@ func (ce *ConsensusEngine) Mine(b *LedgerBlock) (uint64, []byte) {
 	}
 }
 
-// validateHash memvalidasi hash menggunakan aturan validasi dari internal/consensus
+// validateHash validates the generated hash using validation rules defined within internal/consensus.
 func (ce *ConsensusEngine) validateHash(hash []byte) bool {
 	hashStr := hex.EncodeToString(hash)
-	// Memanggil fungsi ValidatePoW dari package internal/consensus secara langsung
+	// Directly invoke the ValidatePoW function provided by the internal/consensus package.
 	return consensus.ValidatePoW(hashStr, uint64(ce.TargetDifficulty))
 }
