@@ -138,3 +138,22 @@ func (s *Server) ConnectToPeer(peerAddr string) error {
 	fmt.Printf("[P2P] Successfully connected to remote peer: %s\n", peerAddr)
 	return nil
 }
+
+// GetPeerCount mengembalikan total jumlah node peer yang sedang terhubung
+func (s *Server) GetPeerCount() int {
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
+	return len(s.Peers)
+}
+
+// GetPeerList mengembalikan daftar alamat IP/port peer yang aktif
+func (s *Server) GetPeerList() []string {
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
+	
+	peers := make([]string, 0, len(s.Peers))
+	for addr := range s.Peers {
+		peers = append(peers, addr)
+	}
+	return peers
+}

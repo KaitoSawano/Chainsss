@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"eterbit/core"
-	"eterbit/internal/p2p"
 	"eterbit/node"
 	"eterbit/storage/wallet"
 
@@ -44,6 +43,7 @@ func main() {
 	nodeCmd := flag.NewFlagSet("node", flag.ExitOnError)
 	explorerCmd := flag.NewFlagSet("explorer", flag.ExitOnError)
 	mineCmd := flag.NewFlagSet("mine", flag.ExitOnError)
+	peersCmd := flag.NewFlagSet("peers", flag.ExitOnError)
 
 	// Define specific parameter bindings for individual command flags.
 	walletName := walletCreateCmd.String("name", "keystore.json", "Custom filename for the wallet")
@@ -82,6 +82,9 @@ func main() {
 	case "mine":
 		mineCmd.Parse(os.Args[2:])
 		handleManualMine()
+	case "peers":
+		peersCmd.Parse(os.Args[2:])
+		handleCheckPeers()
 	default:
 		printUsage()
 		os.Exit(1)
@@ -101,6 +104,7 @@ func printUsage() {
 	fmt.Println("  go run eterbit.go node [--port :port] [--connect host:port]")
 	fmt.Println("  go run eterbit.go mine")
 	fmt.Println("  go run eterbit.go explorer")
+	fmt.Println("  go run eterbit.go peers")
 	fmt.Println("================================================================================")
 }
 
@@ -318,7 +322,6 @@ func handleRunNode(port string, connectPeer string) {
 				// Execute the computational block mining procedure.
 				ledger.MineBlock()
 
-				// Broadcast newly mined block or perform updates if needed
 				// Flush and clear the disk mempool storage file following successful block commitment.
 				saveMempoolToDisk([]*core.Transfer{})
 			}
@@ -367,4 +370,15 @@ func handleManualMine() {
 func handleExploreBlockchain() {
 	// Invoke core storage inspection functions to visualize the existing blockchain database layout.
 	core.InspectBlockchain("eterbit_data")
+}
+
+// handleCheckPeers displays instructions or info regarding active connected peer monitoring
+func handleCheckPeers() {
+	fmt.Println("================================================================================")
+	fmt.Println(" ETERBIT P2P NETWORK - PEER STATUS")
+	fmt.Println("================================================================================")
+	fmt.Println(" Tip: Node peer connections are managed dynamically at runtime.")
+	fmt.Println("      Check the terminal logs where your node is running to see")
+	fmt.Println("      real-time incoming connections and outbound peer statuses.")
+	fmt.Println("================================================================================")
 }
