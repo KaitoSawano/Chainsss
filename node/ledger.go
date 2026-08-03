@@ -19,6 +19,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -53,7 +54,7 @@ func formatCoin(amount uint64) float64 {
 // CalculateBlockReward menghitung reward per blok dengan mekanisme halving
 func CalculateBlockReward(blockIndex uint64) uint64 {
 	initialReward := uint64(50) * CoinUnit
-	halvingInterval := uint64(7850000) 
+	halvingInterval := uint64(7850000)
 	
 	halvings := blockIndex / halvingInterval
 	
@@ -174,7 +175,7 @@ func (lc *LedgerCore) SpawnGenesis() {
 	lc.Storage.SaveBlock(0, genesis)
 }
 
-// AddToMempool validates and inserts a transaction payload into the pending mempool queue.
+// AddToMempool validates and inserts a transaction payload into the pending mempool queue with Fee Market priority sorting.
 func (lc *LedgerCore) AddToMempool(tx *core.Transfer) bool {
 	lc.Mu.Lock()
 	defer lc.Mu.Unlock()
@@ -198,8 +199,15 @@ func (lc *LedgerCore) AddToMempool(tx *core.Transfer) bool {
 		acc.Nonce = tx.Nonce
 	}
 
+	// Masukkan transaksi ke mempool
 	lc.Mempool = append(lc.Mempool, tx)
-	fmt.Printf("[MEMPOOL] Transaction successfully queued (ID: %s...)\n", tx.ComputeID()[:12])
+
+	// Urutkan mempool: Transaksi dengan Fee tertinggi ditaruh di urutan paling depan (Prioritas Miner)
+	sort.Slice(lc.Mempool, func(i, j int) bool {
+		return lc.Mempool[i].Fee > lc.Mempool[j].Fee
+	})
+
+	fmt.Printf("[MEMPOOL] Transaction successfully queued with Fee: %.8f (ID: %s...)\n", formatCoin(tx.Fee), tx.ComputeID()[:12])
 	return true
 }
 
@@ -229,7 +237,15 @@ func (lc *LedgerCore) MineBlock() {
 	var feeTotal uint64 = 0
 
 	if len(lc.Mempool) > 0 {
-		for _, tx := range lc.Mempool {
+		// Batasi maksimal transaksi per blok (misalnya hingga 10 transaksi prioritas teratas)
+		maxTxPerBlock := 10
+		limit := len(lc.Mempool)
+		if limit > maxTxPerBlock {
+			limit = maxTxPerBlock
+		}
+
+		for i := 0; i < limit; i++ {
+			tx := lc.Mempool[i]
 			sender := hex.EncodeToString(tx.SenderPubKey[:16])
 			
 			if _, ok := lc.State[sender]; !ok {
@@ -252,9 +268,11 @@ func (lc *LedgerCore) MineBlock() {
 
 			feeTotal += tx.Fee
 			validTx = append(validTx, tx)
-			fmt.Printf("[MINER] -> Force Processed Tx: %.8f Coins to %s\n", ToDecimal(tx.Value), tx.Recipient)
+			fmt.Printf("[MINER] -> Processing Priority Tx: %.8f Coins to %s (Fee: %.8f)\n", formatCoin(tx.Value), tx.Recipient, formatCoin(tx.Fee))
 		}
-		lc.Mempool = make([]*core.Transfer, 0)
+		
+		// Potong mempool, sisakan transaksi yang belum terangkut di blok ini
+		lc.Mempool = lc.Mempool[limit:]
 	}
 	lc.Mu.Unlock()
 
@@ -296,7 +314,7 @@ func (lc *LedgerCore) MineBlock() {
 	lc.Mu.Unlock()
 
 	fmt.Println("--------------------------------------------------------------------------------")
-	fmt.Printf("[SUCCESS] Block #%d Mined & Saved! (Reward: %.8f, Fee: %.8f, Nonce: %d, Time: %v)\n", newBlock.Index, formatCoin(newBlock.Reward), ToDecimal(feeTotal), newBlock.Nonce, duration)
+	fmt.Printf("[SUCCESS] Block #%d Mined & Saved! (Reward: %.8f, Fee: %.8f, Nonce: %d, Time: %v)\n", newBlock.Index, formatCoin(newBlock.Reward), formatCoin(feeTotal), newBlock.Nonce, duration)
 	fmt.Printf("[CHAIN] Total Blocks: %d | Transactions Processed: %d\n", len(lc.Chain), len(validTx))
 	fmt.Println("--------------------------------------------------------------------------------")
 }
