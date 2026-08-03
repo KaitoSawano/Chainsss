@@ -9,8 +9,9 @@ import (
 	"eterbit/internal/consensus"
 )
 
-// Definisikan batas maksimum total koin yang dapat beredar (Max Supply)
-const MaxEterbitSupply uint64 = 5000 // 5.000 Koin sesuai perhitungan halving
+// Mengambil batas maksimum total koin dari parameter konsensus terpusat
+var consensusParams = consensus.DefaultConsensus()
+const MaxEterbitSupply uint64 = 285000000 // Menyesuaikan dengan MaxSupply di internal/consensus
 
 // LedgerBlock represents the core structural block entity containing transactional ledger data, cryptographic hashes, and consensus metadata.
 type LedgerBlock struct {
@@ -25,9 +26,10 @@ type LedgerBlock struct {
 	Reward     uint64      `json:"reward"`
 }
 
-// GetBlockReward menghitung reward per blok secara dinamis berdasarkan tinggi rantai (halving mechanism)
+// GetBlockReward menghitung reward per blok secara dinamis berdasarkan aturan internal/consensus
 func GetBlockReward(blockHeight uint64) uint64 {
-	initialReward := uint64(50)  // Reward awal: 50 Eterbit per blok
+	// Menggunakan standar BlockReward dari package konsensus terpusat
+	initialReward := consensusParams.BlockReward 
 	halvingInterval := uint64(50) // Interval halving
 
 	halvings := blockHeight / halvingInterval
@@ -84,13 +86,9 @@ func (ce *ConsensusEngine) Mine(b *LedgerBlock) (uint64, []byte) {
 	}
 }
 
-// validateHash checks whether the given cryptographic hash satisfies the required leading zero-byte difficulty constraints.
+// validateHash memvalidasi hash menggunakan aturan validasi dari internal/consensus
 func (ce *ConsensusEngine) validateHash(hash []byte) bool {
 	hashStr := hex.EncodeToString(hash)
-	for i := uint32(0); i < ce.TargetDifficulty; i++ {
-		if hashStr[i] != '0' {
-			return false
-		}
-	}
-	return true
+	// Memanggil fungsi ValidatePoW dari package internal/consensus secara langsung
+	return consensus.ValidatePoW(hashStr, uint64(ce.TargetDifficulty))
 }
