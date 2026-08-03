@@ -273,6 +273,17 @@ func handleRunNode(port string, connectPeer string) {
 	// Initialize P2P server
 	server := p2p.NewServer(port)
 
+	// Background worker to export active peers list for CLI `peers` query (getpeerinfo style)
+	go func() {
+		for {
+			time.Sleep(2 * time.Second)
+			peerList := server.GetPeerList()
+			data, _ := json.MarshalIndent(peerList, "", "  ")
+			os.MkdirAll("eterbit_data", 0755)
+			os.WriteFile("eterbit_data/peers.json", data, 0644)
+		}
+	}()
+
 	// Define P2P callbacks
 	onTx := func(tx *core.Transfer) {
 		fmt.Println("[P2P] Received transaction from network peer, adding to mempool...")
@@ -373,13 +384,31 @@ func handleExploreBlockchain() {
 	core.InspectBlockchain("eterbit_data")
 }
 
-// handleCheckPeers displays instructions or info regarding active connected peer monitoring
+// handleCheckPeers displays active connected peers list (Bitcoin-like getpeerinfo)
 func handleCheckPeers() {
 	fmt.Println("================================================================================")
-	fmt.Println(" ETERBIT P2P NETWORK - PEER STATUS")
+	fmt.Println(" ETERBIT P2P NETWORK - PEER INFO (GETPEERINFO)")
 	fmt.Println("================================================================================")
-	fmt.Println(" Tip: Node peer connections are managed dynamically at runtime.")
-	fmt.Println("      Check the terminal logs where your node is running to see")
-	fmt.Println("      real-time incoming connections and outbound peer statuses.")
+	
+	filePath := filepath.Join("eterbit_data", "peers.json")
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		fmt.Println(" No active node server running or no peers connected.")
+		fmt.Println("================================================================================")
+		return
+	}
+
+	var peers []string
+	if err := json.Unmarshal(data, &peers); err != nil || len(peers) == 0 {
+		fmt.Println(" Connected Peers: 0")
+		fmt.Println("================================================================================")
+		return
+	}
+
+	fmt.Printf(" Total Connected Peers: %d\n", len(peers))
+	fmt.Println("--------------------------------------------------------------------------------")
+	for i, peer := range peers {
+		fmt.Printf(" [%d] Peer Address: %s (Status: ACTIVE/CONNECTED)\n", i+1, peer)
+	}
 	fmt.Println("================================================================================")
 }
