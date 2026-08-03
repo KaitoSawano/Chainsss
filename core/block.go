@@ -1,4 +1,5 @@
 // Copyright (c) 2026 AldianOkto. All rights reserved.
+// Copyright (c) 2026 Eterbit Core
 // Use of this source code is governed by the Apache License.
 // that can be found in the root directory of this repository.
 // Project: Eterbit / Blockchain Core
