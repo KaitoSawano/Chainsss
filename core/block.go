@@ -49,7 +49,7 @@ type LedgerBlock struct {
 func GetBlockReward(blockHeight uint64) uint64 {
 	// Multiply the base block reward by CoinUnit to convert it into the smallest fractional integer units (e.g., 50 * 100,000,000).
 	initialReward := consensusParams.BlockReward * CoinUnit
-	halvingInterval := uint64(50) // Halving interval configuration
+	halvingInterval := uint64(7850000) // Halving interval configuration aligned to 7,850,000 blocks
 
 	halvings := blockHeight / halvingInterval
 
