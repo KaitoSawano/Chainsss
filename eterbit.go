@@ -1,3 +1,5 @@
+// Copyright 2026 Aldianokto
+// Apache License for more details.
 package main
 
 import (
