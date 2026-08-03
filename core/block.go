@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"golang.org/x/crypto/sha3"
+	"eterbit/internal/consensus"
 )
 
 // Definisikan batas maksimum total koin yang dapat beredar (Max Supply)
