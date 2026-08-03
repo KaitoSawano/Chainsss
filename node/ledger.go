@@ -50,7 +50,7 @@ func CalculateBlockReward(blockIndex uint64) uint64 {
 	// Tentukan reward awal per blok (misal: 50 koin, dikalikan CoinUnit)
 	initialReward := uint64(50) * CoinUnit
 	
-	// Tentukan interval halving (misalnya setiap 210,000 blok)
+	// Tentukan interval halving (Ganti ke 7850000 untuk mainnet, atau angka kecil misal 3 untuk uji coba)
 	halvingInterval := uint64(7850000) 
 	
 	// Hitung sudah berapa kali halving terjadi
@@ -62,7 +62,12 @@ func CalculateBlockReward(blockIndex uint64) uint64 {
 	}
 	
 	// Geser bit ke kanan (sama dengan membagi 2 sebanyak 'halvings' kali)
-	return initialReward >> halvings
+	reward := initialReward >> halvings
+	
+	// Debug opsional untuk memantau kalkulasi
+	fmt.Printf("[HALVING DEBUG] Block #%d | Era Halving: %d | Reward Mentah: %d\n", blockIndex, halvings, reward)
+	
+	return reward
 }
 
 // InitializeLedger initializes or loads the local ledger database state from the specified storage path.
