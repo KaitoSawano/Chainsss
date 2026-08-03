@@ -25,8 +25,8 @@ import (
 	"time"
 
 	"eterbit/core"
-	"eterbit/internal/p2p"
 	"eterbit/internal"
+	"eterbit/internal/p2p"
 	"eterbit/node"
 	"eterbit/storage/wallet"
 
@@ -262,7 +262,7 @@ func handleRunNode(port string, connectPeer string) {
 	fmt.Println("[SYS] Booting Eterbit Live Node (Bitcoin Core Style)...")
 	
 	// Catat waktu mulai node untuk fitur uptime ala daemon
-	status.RecordStartTime()
+	internal.RecordStartTime()
 	
 	addrMiner, _, _, err := wallet.LoadWalletCustom("eterbit_data/keystore.json")
 	if err != nil {
@@ -416,9 +416,9 @@ func handleCheckFees() {
 	fmt.Println("================================================================================")
 }
 
-// handleCheckUptime menampilkan durasi keaktifan node menggunakan modul internal/status
+// handleCheckUptime menampilkan durasi keaktifan node menggunakan modul internal
 func handleCheckUptime() {
-	_, uptimeFormatted := status.GetUptime()
+	_, uptimeFormatted := internal.GetUptime()
 
 	fmt.Println("================================================================")
 	fmt.Println("                  ETERBIT NODE UPTIME INFO                      ")
