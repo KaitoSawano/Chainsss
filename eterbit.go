@@ -135,9 +135,9 @@ func handleCheckBalance() {
 		return
 	}
 	
-	// Iterate through every active account entry within the ledger state registry.
+	// Iterate through every active account entry within the ledger state registry (Formatted with 8 decimals).
 	for addr, acc := range ledger.State {
-		fmt.Printf(" Address: %s | Balance: %d Coins | Nonce: %d\n", addr, acc.Balance, acc.Nonce)
+		fmt.Printf(" Address: %s | Balance: %.8f Coins | Nonce: %d\n", addr, node.ToDecimal(acc.Balance), acc.Nonce)
 	}
 	fmt.Println("================================================================================")
 }
@@ -197,19 +197,19 @@ func handleSendTx(recipient string, amount uint64, fee uint64, walletFile string
 
 	// Bootstrap default ledger account balance entries for test execution continuity.
 	ledger.State[addrA] = &node.AccountState{
-		Balance: 10000,
+		Balance: node.InitialAirdrop,
 		Nonce:   0,
 	}
 	
 	// Ensure compatibility across alternative address string prefix formats within the ledger state.
 	if len(addrA) > 4 && addrA[:4] == "etrb" {
 		ledger.State[addrA[4:]] = &node.AccountState{
-			Balance: 10000,
+			Balance: node.InitialAirdrop,
 			Nonce:   0,
 		}
 	} else {
 		ledger.State["etrb"+addrA] = &node.AccountState{
-			Balance: 10000,
+			Balance: node.InitialAirdrop,
 			Nonce:   0,
 		}
 	}
@@ -217,7 +217,7 @@ func handleSendTx(recipient string, amount uint64, fee uint64, walletFile string
 	// Compute a dynamically adjusted unique nonce parameter utilizing high-resolution nanosecond timestamps.
 	currentNonce := ledger.State[addrA].Nonce + uint64(time.Now().UnixNano()%100000)
 
-	fmt.Printf("[CLI] Constructing transaction from %s (via %s) to %s (Amount: %d, Fee: %d)...\n", addrA, walletFile, recipient, amount, fee)
+	fmt.Printf("[CLI] Constructing transaction from %s (via %s) to %s (Amount: %.8f, Fee: %.8f)...\n", addrA, walletFile, recipient, node.ToDecimal(amount), node.ToDecimal(fee))
 
 	// Instantiate a cryptographic transfer object using private key signing mechanisms.
 	tx := core.NewTransfer(privKeyA, pubBytesA, recipient, amount, fee, currentNonce)
