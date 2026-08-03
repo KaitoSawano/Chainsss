@@ -26,7 +26,7 @@ import (
 
 	"eterbit/core"
 	"eterbit/internal/p2p"
-	"eterbit/internal/status"
+	"eterbit/internal"
 	"eterbit/node"
 	"eterbit/storage/wallet"
 
