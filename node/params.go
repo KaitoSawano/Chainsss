@@ -15,18 +15,20 @@
 
 package node
 
-// Konstanta Parameter Finansial & Desimal Eterbit (8 Presisi Desimal)
+// Financial and decimal parameter constants for Eterbit (8 decimal precision).
 const (
-	CoinUnit     = 100000000 // 1 Eterbit = 100,000,000 satuan terkecil
+	CoinUnit       = 100000000 // 1 Eterbit = 100,000,000 smallest units
 	InitialAirdrop = 10000 * CoinUnit
 )
 
-// ToDecimal mengubah satuan integer terkecil ke format float 8 desimal
+// ToDecimal converts the smallest integer unit value into an 8-decimal float format.
 func ToDecimal(amount uint64) float64 {
+	// Divide the raw integer smallest unit value by the coin unit multiplier to obtain the standard float representation.
 	return float64(amount) / float64(CoinUnit)
 }
 
-// ToUnits mengubah nilai float/koin ke satuan integer terkecil
+// ToUnits converts a standard float coin value into the smallest integer unit representation.
 func ToUnits(amount float64) uint64 {
+	// Multiply the standard coin float value by the coin unit multiplier to convert it into raw integer base units.
 	return uint64(amount * float64(CoinUnit))
 }
