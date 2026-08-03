@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/syndtr/goleveldb/leveldb"
+	"eterbit/internal/consensus"
 )
 
 // BlockRecord represents the structural schema of a stored block for exploration purposes.
