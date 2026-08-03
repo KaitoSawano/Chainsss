@@ -9,6 +9,9 @@ import (
 	"eterbit/internal/consensus"
 )
 
+// CoinUnit mendefinisikan skala 8 desimal yang konsisten dengan node
+const CoinUnit = uint64(100000000)
+
 // Mengambil batas maksimum total koin dari parameter konsensus terpusat
 var consensusParams = consensus.DefaultConsensus()
 const MaxEterbitSupply uint64 = 785000000 // Menyesuaikan dengan MaxSupply di internal/consensus
@@ -26,10 +29,10 @@ type LedgerBlock struct {
 	Reward     uint64      `json:"reward"`
 }
 
-// GetBlockReward menghitung reward per blok secara dinamis berdasarkan aturan internal/consensus
+// GetBlockReward menghitung reward per blok secara dinamis dan dikalikan CoinUnit agar akurat 8 desimal
 func GetBlockReward(blockHeight uint64) uint64 {
-	// Menggunakan standar BlockReward dari package konsensus terpusat
-	initialReward := consensusParams.BlockReward 
+	// Mengalikan BlockReward dengan CoinUnit agar menjadi satuan terkecil (misal: 50 * 100,000,000)
+	initialReward := consensusParams.BlockReward * CoinUnit
 	halvingInterval := uint64(50) // Interval halving
 
 	halvings := blockHeight / halvingInterval
