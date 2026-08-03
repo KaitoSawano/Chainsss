@@ -45,26 +45,25 @@ type LedgerCore struct {
 	StopSignal   chan bool
 }
 
+// formatCoin converts raw integer units to a floating-point representation for display
+func formatCoin(amount uint64) float64 {
+	return float64(amount) / float64(CoinUnit)
+}
+
 // CalculateBlockReward menghitung reward per blok dengan mekanisme halving
 func CalculateBlockReward(blockIndex uint64) uint64 {
-	// Tentukan reward awal per blok (50 koin, sudah dikalikan CoinUnit)
 	initialReward := uint64(50) * CoinUnit
-	
-	// Gunakan angka 3 untuk uji coba cepat halving, ubah ke 7850000 untuk mainnet
 	halvingInterval := uint64(3) 
 	
-	// Hitung sudah berapa kali halving terjadi
 	halvings := blockIndex / halvingInterval
 	
-	// Batasi maksimal halving (maksimal 64 kali, setelah itu reward 0)
 	if halvings >= 64 {
 		return 0
 	}
 	
-	// Geser bit ke kanan (sama dengan membagi 2 sebanyak 'halvings' kali)
 	reward := initialReward >> halvings
 	
-	fmt.Printf("[HALVING DEBUG] Block #%d | Era Halving: %d | Reward Final: %d\n", blockIndex, halvings, reward)
+	fmt.Printf("[HALVING DEBUG] Block #%d | Era Halving: %d | Reward Final: %d (%.8f Coins)\n", blockIndex, halvings, reward, formatCoin(reward))
 	
 	return reward
 }
@@ -297,7 +296,7 @@ func (lc *LedgerCore) MineBlock() {
 	lc.Mu.Unlock()
 
 	fmt.Println("--------------------------------------------------------------------------------")
-	fmt.Printf("[SUCCESS] Block #%d Mined & Saved! (Reward: %.8f, Fee: %.8f, Nonce: %d, Time: %v)\n", newBlock.Index, ToDecimal(newBlock.Reward), ToDecimal(feeTotal), newBlock.Nonce, duration)
+	fmt.Printf("[SUCCESS] Block #%d Mined & Saved! (Reward: %.8f, Fee: %.8f, Nonce: %d, Time: %v)\n", newBlock.Index, formatCoin(newBlock.Reward), ToDecimal(feeTotal), newBlock.Nonce, duration)
 	fmt.Printf("[CHAIN] Total Blocks: %d | Transactions Processed: %d\n", len(lc.Chain), len(validTx))
 	fmt.Println("--------------------------------------------------------------------------------")
 }
