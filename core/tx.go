@@ -35,6 +35,7 @@ type Transfer struct {
 
 // NewTransfer constructs a new Transfer transaction instance, computes its hash payload, and signs it using the Dilithium private key.
 func NewTransfer(priv *mode3.PrivateKey, pub []byte, recipient string, value, fee, nonce uint64) *Transfer {
+	// Initialize a new Transfer transaction structure with the provided parameters.
 	tx := &Transfer{
 		SenderPubKey: pub,
 		Recipient:    recipient,
@@ -43,30 +44,37 @@ func NewTransfer(priv *mode3.PrivateKey, pub []byte, recipient string, value, fe
 		Nonce:        nonce,
 	}
 
+	// Generate a post-quantum cryptographic signature over the canonical transaction payload bytes.
 	sig, err := crypto.Sign(priv, tx.PayloadBytes())
 	if err != nil {
 		panic(err)
 	}
 	tx.Signature = sig
+	// Return a pointer to the fully signed transfer transaction instance.
 	return tx
 }
 
 // PayloadBytes serializes the primary transactional parameters into a canonical byte slice representation for signing and verification.
 func (tx *Transfer) PayloadBytes() []byte {
+	// Format and return the core transactional attributes as a standardized byte slice.
 	return []byte(fmt.Sprintf("%s-%d-%d-%d", tx.Recipient, tx.Value, tx.Fee, tx.Nonce))
 }
 
 // Verify validates the post-quantum digital signature attached to the transaction against the sender's public key.
 func (tx *Transfer) Verify() bool {
 	var pub mode3.PublicKey
+	// Unmarshal the raw sender public key bytes into a functional Dilithium public key instance.
 	if err := pub.UnmarshalBinary(tx.SenderPubKey); err != nil {
 		return false
 	}
+	// Verify the attached post-quantum cryptographic signature against the transaction payload bytes.
 	return crypto.Verify(&pub, tx.PayloadBytes(), tx.Signature)
 }
 
 // ComputeID generates a unique cryptographic hash identifier string for the transaction instance.
 func (tx *Transfer) ComputeID() string {
+	// Hash the combination of the sender public key and payload bytes to produce a unique transaction ID.
 	hasher := crypto.Hash256(append(tx.SenderPubKey, tx.PayloadBytes()...))
+	// Encode the resulting hash digest into a hexadecimal string representation.
 	return hex.EncodeToString(hasher)
 }
