@@ -1,4 +1,4 @@
-package internalp
+package internal
 
 import (
 	"encoding/json"
