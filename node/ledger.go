@@ -160,6 +160,7 @@ func (lc *LedgerCore) RebuildState(block *core.LedgerBlock) {
 
 // SpawnGenesis creates and persists the initial genesis block of the blockchain network.
 func (lc *LedgerCore) SpawnGenesis() {
+	exactReward := CalculateBlockReward(0)
 	genesis := &core.LedgerBlock{
 		Index:      0,
 		Timestamp:  time.Now().Unix(),
@@ -168,9 +169,10 @@ func (lc *LedgerCore) SpawnGenesis() {
 		Miner:      "SYSTEM_GENESIS",
 		Nonce:      0,
 		Difficulty: lc.Engine.TargetDifficulty,
-		Reward:     CalculateBlockReward(0),
+		Reward:     exactReward,
 	}
 	_, genesis.Hash = lc.Engine.Mine(genesis)
+	genesis.Reward = exactReward // Lindungi dari perubahan luar
 
 	lc.Chain = append(lc.Chain, genesis)
 	lc.Storage.SaveBlock(0, genesis)
@@ -261,6 +263,7 @@ func (lc *LedgerCore) MineBlock() {
 	lc.Mu.Unlock()
 
 	nextIndex := parent.Index + 1
+	exactReward := CalculateBlockReward(nextIndex)
 
 	newBlock := &core.LedgerBlock{
 		Index:      nextIndex,
@@ -269,7 +272,7 @@ func (lc *LedgerCore) MineBlock() {
 		Transfers:  validTx,
 		Miner:      lc.MinerAddress,
 		Difficulty: lc.Engine.TargetDifficulty,
-		Reward:     CalculateBlockReward(nextIndex),
+		Reward:     exactReward,
 	}
 
 	fmt.Printf("[MINER] Mining Block #%d with %d transactions (Difficulty: %d)...\n", newBlock.Index, len(validTx), newBlock.Difficulty)
@@ -280,6 +283,7 @@ func (lc *LedgerCore) MineBlock() {
 
 	newBlock.Nonce = nonce
 	newBlock.Hash = hash
+	newBlock.Reward = exactReward // Paksa kembalikan ke nilai halving yang benar agar tidak tertimpa fungsi Mine()
 
 	lc.Mu.Lock()
 	lc.Chain = append(lc.Chain, newBlock)
