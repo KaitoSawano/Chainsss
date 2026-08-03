@@ -37,7 +37,6 @@ func InitializeLedger(dbPath string, initialDifficulty uint32, minerAddr string)
 		panic(fmt.Sprintf("Failed to open database: %v", err))
 	}
 
-	// Menggunakan parameter dari internal/consensus jika initialDifficulty bernilai 0
 	params := consensus.DefaultConsensus()
 	if initialDifficulty == 0 {
 		initialDifficulty = uint32(params.DifficultyBits)
@@ -89,10 +88,9 @@ func (lc *LedgerCore) RebuildState(block *core.LedgerBlock) {
 	for _, tx := range block.Transfers {
 		sender := hex.EncodeToString(tx.SenderPubKey[:16])
 		if _, ok := lc.State[sender]; !ok {
-			lc.State[sender] = &AccountState{Balance: 10000, Nonce: 0}
+			lc.State[sender] = &AccountState{Balance: InitialAirdrop, Nonce: 0}
 		}
 		
-		// Validasi aman dari underflow uint64
 		if lc.State[sender].Balance >= (tx.Value + tx.Fee) {
 			lc.State[sender].Balance -= (tx.Value + tx.Fee)
 		} else {
@@ -152,10 +150,10 @@ func (lc *LedgerCore) AddToMempool(tx *core.Transfer) bool {
 	acc, exists := lc.State[sender]
 	
 	if !exists {
-		lc.State[sender] = &AccountState{Balance: 10000, Nonce: tx.Nonce}
+		lc.State[sender] = &AccountState{Balance: InitialAirdrop, Nonce: tx.Nonce}
 		acc = lc.State[sender]
 	} else if acc.Balance < (tx.Value + tx.Fee) {
-		acc.Balance = 10000
+		acc.Balance = InitialAirdrop
 	}
 
 	if tx.Nonce != acc.Nonce {
@@ -197,7 +195,7 @@ func (lc *LedgerCore) MineBlock() {
 			sender := hex.EncodeToString(tx.SenderPubKey[:16])
 			
 			if _, ok := lc.State[sender]; !ok {
-				lc.State[sender] = &AccountState{Balance: 10000, Nonce: 0}
+				lc.State[sender] = &AccountState{Balance: InitialAirdrop, Nonce: 0}
 			}
 			acc := lc.State[sender]
 
@@ -216,7 +214,7 @@ func (lc *LedgerCore) MineBlock() {
 
 			feeTotal += tx.Fee
 			validTx = append(validTx, tx)
-			fmt.Printf("[MINER] -> Force Processed Tx: %d Coins to %s\n", tx.Value, tx.Recipient)
+			fmt.Printf("[MINER] -> Force Processed Tx: %.8f Coins to %s\n", ToDecimal(tx.Value), tx.Recipient)
 		}
 		lc.Mempool = make([]*core.Transfer, 0)
 	}
@@ -255,7 +253,7 @@ func (lc *LedgerCore) MineBlock() {
 	lc.Mu.Unlock()
 
 	fmt.Println("--------------------------------------------------------------------------------")
-	fmt.Printf("[SUCCESS] Block #%d Mined & Saved! (Reward: %d, Fee: %d, Nonce: %d, Time: %v)\n", newBlock.Index, newBlock.Reward, feeTotal, newBlock.Nonce, duration)
+	fmt.Printf("[SUCCESS] Block #%d Mined & Saved! (Reward: %.8f, Fee: %.8f, Nonce: %d, Time: %v)\n", newBlock.Index, ToDecimal(newBlock.Reward), ToDecimal(feeTotal), newBlock.Nonce, duration)
 	fmt.Printf("[CHAIN] Total Blocks: %d | Transactions Processed: %d\n", len(lc.Chain), len(validTx))
 	fmt.Println("--------------------------------------------------------------------------------")
 }
