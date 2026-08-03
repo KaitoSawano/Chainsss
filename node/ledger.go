@@ -45,6 +45,26 @@ type LedgerCore struct {
 	StopSignal   chan bool
 }
 
+// CalculateBlockReward menghitung reward per blok dengan mekanisme halving ala Bitcoin
+func CalculateBlockReward(blockIndex uint64) uint64 {
+	// Tentukan reward awal (misal: 50 koin, dikali CoinUnit agar sesuai skala desimal)
+	initialReward := uint64(50) * CoinUnit
+	
+	// Tentukan interval halving (misalnya setiap 210,000 blok)
+	halvingInterval := uint64(210000) 
+	
+	// Hitung sudah berapa kali halving terjadi
+	halvings := blockIndex / halvingInterval
+	
+	// Batasi maksimal halving (misal 64 kali, setelah itu reward 0)
+	if halvings >= 64 {
+		return 0
+	}
+	
+	// Geser bit ke kanan (sama dengan membagi 2 sebanyak 'halvings' kali)
+	return initialReward >> halvings
+}
+
 // InitializeLedger initializes or loads the local ledger database state from the specified storage path.
 func InitializeLedger(dbPath string, initialDifficulty uint32, minerAddr string) *LedgerCore {
 	db, err := storage.NewDatabase(dbPath)
@@ -155,10 +175,10 @@ func (lc *LedgerCore) SpawnGenesis() {
 		Miner:      "SYSTEM_GENESIS",
 		Nonce:      0,
 		Difficulty: lc.Engine.TargetDifficulty,
+		Reward:     CalculateBlockReward(0), // Set reward genesis
 	}
 	_, genesis.Hash = lc.Engine.Mine(genesis)
 	
-	// Pastikan reward genesis dikalikan CoinUnit
 	if genesis.Reward < CoinUnit {
 		genesis.Reward = genesis.Reward * CoinUnit
 	}
@@ -251,13 +271,16 @@ func (lc *LedgerCore) MineBlock() {
 	}
 	lc.Mu.Unlock()
 
+	nextIndex := parent.Index + 1
+
 	newBlock := &core.LedgerBlock{
-		Index:      parent.Index + 1,
+		Index:      nextIndex,
 		Timestamp:  time.Now().Unix(),
 		PrevHash:   parent.Hash,
 		Transfers:  validTx,
 		Miner:      lc.MinerAddress,
 		Difficulty: lc.Engine.TargetDifficulty,
+		Reward:     CalculateBlockReward(nextIndex), // Menerapkan logika halving otomatis berdasarkan tinggi blok
 	}
 
 	fmt.Printf("[MINER] Mining Block #%d with %d transactions (Difficulty: %d)...\n", newBlock.Index, len(validTx), newBlock.Difficulty)
