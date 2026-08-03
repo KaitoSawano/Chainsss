@@ -45,13 +45,13 @@ type LedgerCore struct {
 	StopSignal   chan bool
 }
 
-// CalculateBlockReward menghitung reward per blok dengan mekanisme halving ala Bitcoin
+// CalculateBlockReward menghitung reward per blok dengan mekanisme halving
 func CalculateBlockReward(blockIndex uint64) uint64 {
-	// Tentukan reward awal (misal: 50 koin, dikali CoinUnit agar sesuai skala desimal)
+	// Tentukan reward awal per blok (misal: 50 koin, dikalikan CoinUnit)
 	initialReward := uint64(50) * CoinUnit
 	
 	// Tentukan interval halving (misalnya setiap 210,000 blok)
-	halvingInterval := uint64(210000) 
+	halvingInterval := uint64(7850000) 
 	
 	// Hitung sudah berapa kali halving terjadi
 	halvings := blockIndex / halvingInterval
@@ -175,7 +175,7 @@ func (lc *LedgerCore) SpawnGenesis() {
 		Miner:      "SYSTEM_GENESIS",
 		Nonce:      0,
 		Difficulty: lc.Engine.TargetDifficulty,
-		Reward:     CalculateBlockReward(0), // Set reward genesis
+		Reward:     CalculateBlockReward(0),
 	}
 	_, genesis.Hash = lc.Engine.Mine(genesis)
 	
@@ -280,7 +280,7 @@ func (lc *LedgerCore) MineBlock() {
 		Transfers:  validTx,
 		Miner:      lc.MinerAddress,
 		Difficulty: lc.Engine.TargetDifficulty,
-		Reward:     CalculateBlockReward(nextIndex), // Menerapkan logika halving otomatis berdasarkan tinggi blok
+		Reward:     CalculateBlockReward(nextIndex),
 	}
 
 	fmt.Printf("[MINER] Mining Block #%d with %d transactions (Difficulty: %d)...\n", newBlock.Index, len(validTx), newBlock.Difficulty)
